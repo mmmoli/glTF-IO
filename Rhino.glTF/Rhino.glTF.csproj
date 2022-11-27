@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net48</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Version>1.0.0</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="..\glTF-BinExporter\RhinoDocGltfConverter.cs" />
+        <Compile Include="..\glTF-BinExporter\gltfSchemaDummy.cs" />
+        <Compile Include="..\glTF-BinExporter\gltfSchemaSceneDummy.cs" />
+        <Compile Include="..\glTF-BinExporter\RhinoMeshGltfConverter.cs" />
+        <Compile Include="..\glTF-BinExporter\Constants.cs" />
+        <Compile Include="..\glTF-BinExporter\GlTFUtils.cs" />
+        <Compile Include="..\glTF-BinExporter\RhinoMaterialGltfConverter.cs" />
+
+        <Compile Include="..\glTFExtensions\*.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="RhinoCommon" Version="7.18.22124.3001" IncludeAssets="compile;build" />
+        <ProjectReference Include="..\glTFLib\glTF-CSharp-Loader\glTFLoader\glTFLoader.csproj" />
+    </ItemGroup>
+
+</Project>
