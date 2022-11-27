@@ -5,8 +5,6 @@ VisualStudioVersion = 17.4.33110.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rhino.glTF", "Rhino.glTF.csproj", "{5CC55980-6390-452C-B44A-023F5D708F65}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "glTFLoader", "..\glTFLib\glTF-CSharp-Loader\glTFLoader\glTFLoader.csproj", "{F40D09AE-AB34-44FB-86BE-F4DFE43B2B92}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{5CC55980-6390-452C-B44A-023F5D708F65}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5CC55980-6390-452C-B44A-023F5D708F65}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5CC55980-6390-452C-B44A-023F5D708F65}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F40D09AE-AB34-44FB-86BE-F4DFE43B2B92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F40D09AE-AB34-44FB-86BE-F4DFE43B2B92}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F40D09AE-AB34-44FB-86BE-F4DFE43B2B92}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F40D09AE-AB34-44FB-86BE-F4DFE43B2B92}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
