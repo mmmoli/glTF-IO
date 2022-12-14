@@ -1,49 +1,43 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\..\..\RhinoProjectPropertySheets\Rhino.CS.Friend.PlugIn.props" />
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{CEB4C2BC-FC3A-4262-95F8-D481F5A1C730}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>glTFExtensions</RootNamespace>
-    <AssemblyName>glTFExtensions</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFramework>net48</TargetFramework>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>False</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultItems>false</EnableDefaultItems>
     <FileAlignment>512</FileAlignment>
-    <Deterministic>true</Deterministic>
+    <WarningLevel>4</WarningLevel>
+    <GenerateResourceUsePreserializedResources>True</GenerateResourceUsePreserializedResources>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <OutputPath>$(RhinoBinDir)\$(Configuration)\Plug-ins\</OutputPath>
+    <DefineConstants Condition="'$(OS)' == 'Windows_NT'">ON_RUNTIME_WIN;TRACE;DEBUG;</DefineConstants>
+    <DefineConstants Condition="'$(OS)' != 'Windows_NT'">TRACE;DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <PlatformTarget>anycpu</PlatformTarget>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <OutputPath>$(RhinoBinDir)\$(Configuration)\Plug-ins\</OutputPath>
+    <DefineConstants Condition="'$(OS)' == 'Windows_NT'">ON_RUNTIME_WIN;TRACE;</DefineConstants>
+    <DefineConstants Condition="'$(OS)' != 'Windows_NT'">TRACE;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
+    <Compile Include="..\..\..\..\version.cs" Link="Properties\version.cs" />
     <Compile Include="KHR_draco_mesh_compression.cs" />
     <Compile Include="KHR_materials_clearcoat.cs" />
     <Compile Include="KHR_materials_ior.cs" />
@@ -52,13 +46,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <PackageReference Include="glTF2Loader" Version="1.1.4-alpha" />
+    <PackageReference Include="System.Resources.Extensions" Version="7.0.0" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\glTFLib\glTF-CSharp-Loader\glTFLoader\glTFLoader.csproj">
-      <Project>{4c88fa85-98f7-4e37-978c-1885d175b428}</Project>
-      <Name>glTFLoader</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
