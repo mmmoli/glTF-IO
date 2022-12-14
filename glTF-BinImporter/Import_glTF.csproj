@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\..\RhinoProjectPropertySheets\Rhino.CS.Friend.PlugIn.props" />
+  <Import Project="..\..\..\..\RhinoProjectPropertySheets\Rhino.CS.PlugIn.props" />
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
