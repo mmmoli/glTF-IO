@@ -7,23 +7,13 @@ Rhino users with questions should go here: https://discourse.mcneel.com/t/gltf-b
 Bug reports are welcome here.
 
 # For Developers
-Can be integrated into your own products with a friendly API that allows it to be used from your own plugins.
-
 Everything you need to know about glTF is available on this poster: https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/figures/gltfOverview-2.0.0b.png
 
 Contributions and bug reports are welcome.
 
-## Build Releases and Deploying
-This project uses the Rhino7 and above `PackageManger` for managing the user releases.
-Building and deploying for both Win and Mac can be done with:
-```
-$ cd bin/Release/net48
-$ /Applications/Rhino\ 7.app/Contents/Resources/bin/yak build
-$ /Applications/Rhino\ 7.app/Contents/Resources/bin/yak push gltf-binexporter-XXXXXXX-any.yak
-```
-
 # Sponsors
 [Stykka ApS](https://stykka.com)
+
 [McNeel](https://rhino3d.com)
 
 # Contributors
