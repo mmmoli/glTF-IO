@@ -62,9 +62,9 @@
     <ProjectReference Include="..\..\..\..\DotNetSDK\Rhino.UI\Rhino.UI.csproj" Private="False" ExcludeAssets="all" />
     <ProjectReference Include="..\..\..\..\DotNetSDK\rhinocommon\dotnet\RhinoCommon.csproj" Private="False" ExcludeAssets="all" />
     <ProjectReference Include="..\glTFExtensions\glTFExtensions.csproj" />
+    <ProjectReference Include="..\glTFLoader\glTFLoader.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="glTF2Loader" Version="1.1.4-alpha" />
     <PackageReference Include="System.Resources.Extensions" Version="7.0.0" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 </Project>
