@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -46,21 +46,21 @@ namespace glTF_BinExporter
         {
             Resizable = false;
 
-            Title = "glTF Export Options";
+            Title = Rhino.UI.LOC.STR("glTF Export Options");
 
-            mapZtoY.Text = "Map Rhino Z to glTF Y";
+            mapZtoY.Text = Rhino.UI.LOC.STR("Map Rhino Z to glTF Y");
 
-            exportMaterials.Text = "Export materials";
+            exportMaterials.Text = Rhino.UI.LOC.STR("Export materials");
 
-            useDisplayColorForUnsetMaterial.Text = "Use display color for objects with no material set";
+            useDisplayColorForUnsetMaterial.Text = Rhino.UI.LOC.STR("Use display color for objects with no material set");
 
-            exportLayers.Text = "Export Layers";
+            exportLayers.Text = Rhino.UI.LOC.STR("Export Layers");
 
-            subdBox.Text = "SubD Meshing";
+            subdBox.Text = Rhino.UI.LOC.STR("SubD Meshing");
 
-            useSubdControlNet.Text = "Use control net";
+            useSubdControlNet.Text = Rhino.UI.LOC.STR("Use control net");
 
-            subdLevelLabel.Text = "Subdivision level";
+            subdLevelLabel.Text = Rhino.UI.LOC.STR("Subdivision level");
 
             subdLevel.SnapToTick = true;
             subdLevel.TickFrequency = 1;
@@ -78,28 +78,28 @@ namespace glTF_BinExporter
                 }
             };
 
-            exportTextureCoordinates.Text = "Export texture coordinates";
+            exportTextureCoordinates.Text = Rhino.UI.LOC.STR("Export texture coordinates");
 
-            exportVertexNormals.Text = "Export vertex normals";
+            exportVertexNormals.Text = Rhino.UI.LOC.STR("Export vertex normals");
 
-            exportOpenMeshes.Text = "Export open meshes";
+            exportOpenMeshes.Text = Rhino.UI.LOC.STR("Export open meshes");
 
-            exportVertexColors.Text = "Export vertex colors";
+            exportVertexColors.Text = Rhino.UI.LOC.STR("Export vertex colors");
 
-            useDracoCompressionCheck.Text = "Use Draco compression";
+            useDracoCompressionCheck.Text = Rhino.UI.LOC.STR("Use Draco compression");
 
-            dracoCompressionLabel.Text = "Draco compression Level";
+            dracoCompressionLabel.Text = Rhino.UI.LOC.STR("Draco compression Level");
             dracoCompressionLevelInput.DecimalPlaces = 0;
             dracoCompressionLevelInput.MinValue = 1;
             dracoCompressionLevelInput.MaxValue = 10;
 
-            dracoQuantizationBitsLabel.Text = "Quantization";
+            dracoQuantizationBitsLabel.Text = Rhino.UI.LOC.STR("Quantization");
 
-            cancelButton.Text = "Cancel";
+            cancelButton.Text = Rhino.UI.LOC.STR("Cancel");
 
-            okButton.Text = "Ok";
+            okButton.Text = Rhino.UI.LOC.STR("Ok");
 
-            useSettingsDontShowDialogCheck.Text = "Always use these settings. Do not show this dialog again.";
+            useSettingsDontShowDialogCheck.Text = Rhino.UI.LOC.STR("Always use these settings. Do not show this dialog again.");
 
             OptionsToDialog();
 
@@ -111,13 +111,17 @@ namespace glTF_BinExporter
             cancelButton.Click += CancelButton_Click;
             okButton.Click += OkButton_Click;
 
-            var dracoGroupBox = new GroupBox() { Text = "Draco Quantization Bits" };
+            var dracoGroupBox = new GroupBox() { Text = Rhino.UI.LOC.STR("Draco Quantization Bits") };
             dracoGroupBox.Content = new TableLayout()
             {
                 Padding = DefaultPadding,
                 Spacing = DefaultSpacing,
                 Rows = {
-                    new TableRow("Position", "Normal", "Texture"),
+                    new TableRow(
+                      Rhino.UI.LOC.STR("Position"),
+                      Rhino.UI.LOC.STR("Normal"),
+                      Rhino.UI.LOC.STR("Texture")
+                      ),
                     new TableRow(dracoQuantizationBitsInputPosition, dracoQuantizationBitsInputNormal, dracoQuantizationBitsInputTexture)
                 }
             };
@@ -136,7 +140,7 @@ namespace glTF_BinExporter
 
             TabPage formattingPage = new TabPage()
             {
-                Text = "Formatting",
+                Text = Rhino.UI.LOC.STR("Formatting"),
                 Content = new TableLayout()
                 {
                     Padding = DefaultPadding,
@@ -155,7 +159,7 @@ namespace glTF_BinExporter
 
             TabPage meshPage = new TabPage()
             {
-                Text = "Mesh",
+                Text = Rhino.UI.LOC.STR("Mesh"),
                 Content = new TableLayout()
                 {
                     Padding = DefaultPadding,
@@ -175,7 +179,7 @@ namespace glTF_BinExporter
 
             TabPage compressionPage = new TabPage()
             {
-                Text = "Compression",
+                Text = Rhino.UI.LOC.STR("Compression"),
                 Content = layout,
             };
             

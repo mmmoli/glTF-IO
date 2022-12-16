@@ -1,4 +1,4 @@
-﻿using Rhino;
+using Rhino;
 using Rhino.FileIO;
 using Rhino.PlugIns;
 using Rhino.UI;
@@ -27,8 +27,8 @@ namespace glTF_BinExporter
         {
             FileTypeList typeList = new FileTypeList();
 
-            typeList.AddFileType("glTF Binary File", ".glb", true);
-            typeList.AddFileType("glTF Text File", ".gltf", true);
+            typeList.AddFileType(LOC.STR("glTF Binary File"), ".glb", true);
+            typeList.AddFileType(LOC.STR("glTF Text File"), ".gltf", true);
 
             return typeList;
         }
@@ -97,7 +97,6 @@ namespace glTF_BinExporter
               glTFLoader.Interface.SaveModel(gltf, fileName);
             }
 
-            RhinoApp.WriteLine("Successfully exported selected geometry to glTF(Binary).");
             return true;
         }
 

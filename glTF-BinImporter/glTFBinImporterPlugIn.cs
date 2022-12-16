@@ -1,4 +1,4 @@
-﻿using Rhino;
+using Rhino;
 using Rhino.PlugIns;
 using System;
 
@@ -20,8 +20,8 @@ namespace glTF_BinImporter
         protected override FileTypeList AddFileTypes(Rhino.FileIO.FileReadOptions options)
         {
             FileTypeList result = new FileTypeList();
-            result.AddFileType("glTF text file (*.gltf)", "gltf");
-            result.AddFileType("glTF binary file (*.glb)", "glb");
+            result.AddFileType(Rhino.UI.LOC.STR("glTF text file (*.gltf)"), "gltf");
+            result.AddFileType(Rhino.UI.LOC.STR("glTF binary file (*.glb)"), "glb");
             return result;
         }
 
@@ -41,6 +41,6 @@ namespace glTF_BinImporter
                 return false;
             }
         }
-
+        
     }
 }
