@@ -1,4 +1,4 @@
-# glTF-Bin
+# glTF-IO
 
 Rhinocerous plugin to export Rhino objects to [glTF Binary](https://www.khronos.org/gltf/) for use on the web/mobile/VR/etc.
 
