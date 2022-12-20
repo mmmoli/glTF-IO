@@ -62,4 +62,42 @@
   <ItemGroup>
     <PackageReference Include="System.Resources.Extensions" Version="7.0.0" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\cs-cz\XML\cs-czImport_glTF.xml">
+      <Link>Localization\cs-czImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\de-de\XML\de-deImport_glTF.xml">
+      <Link>Localization\de-deImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\es-es\XML\es-esImport_glTF.xml">
+      <Link>Localization\es-esImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\fr-fr\XML\fr-frImport_glTF.xml">
+      <Link>Localization\fr-frImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\it-it\XML\it-itImport_glTF.xml">
+      <Link>Localization\it-itImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\ja-jp\XML\ja-jpImport_glTF.xml">
+      <Link>Localization\ja-jpImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\ko-kr\XML\ko-krImport_glTF.xml">
+      <Link>Localization\ko-krImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\pl-pl\XML\pl-plImport_glTF.xml">
+      <Link>Localization\pl-plImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\pt-pt\XML\pt-ptImport_glTF.xml">
+      <Link>Localization\pt-ptImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\ru-ru\XML\ru-ruImport_glTF.xml">
+      <Link>Localization\ru-ruImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\zh-cn\XML\zh-cnImport_glTF.xml">
+      <Link>Localization\zh-cnImport_glTF.xml</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\..\..\Localization\Rhino\zh-tw\XML\zh-twImport_glTF.xml">
+      <Link>Localization\zh-twImport_glTF.xml</Link>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
