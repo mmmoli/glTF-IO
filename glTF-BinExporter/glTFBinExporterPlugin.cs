@@ -1,4 +1,5 @@
 using Rhino;
+using Rhino.Commands;
 using Rhino.FileIO;
 using Rhino.PlugIns;
 using Rhino.UI;
@@ -27,8 +28,8 @@ namespace glTF_BinExporter
         {
             FileTypeList typeList = new FileTypeList();
 
-            typeList.AddFileType(LOC.STR("glTF Binary File"), ".glb", true);
-            typeList.AddFileType(LOC.STR("glTF Text File"), ".gltf", true);
+            typeList.AddFileType(Rhino.UI.LOC.STR("glTF text file (*.gltf)"), "gltf", true);
+            typeList.AddFileType(Rhino.UI.LOC.STR("glTF binary file (*.glb)"), "glb", true);
 
             return typeList;
         }
