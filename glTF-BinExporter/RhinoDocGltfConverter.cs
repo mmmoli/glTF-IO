@@ -218,12 +218,15 @@ namespace glTF_BinExporter
       {
         Rhino.Display.Color4f objectColor = GetObjectColor(rhinoObject);
         return CreateSolidColorMaterial(objectColor);
-      }
-      else if (material == null)
-      {
-        material = DefaultMaterial;
+
+        if (objectColor != Color4f.Black)
+        {
+          return CreateSolidColorMaterial(objectColor);
+        }
       }
 
+
+      material ??= DefaultMaterial;
       Guid materialId = material.Id;
 
       if (!materialsMap.TryGetValue(materialId, out int materialIndex))
