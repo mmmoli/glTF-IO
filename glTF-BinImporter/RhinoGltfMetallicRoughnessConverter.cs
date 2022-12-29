@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +8,12 @@ namespace glTF_BinImporter
 {
     class RhinoGltfMetallicRoughnessConverter
     {
-        public RhinoGltfMetallicRoughnessConverter(System.Drawing.Bitmap bmp, Rhino.RhinoDoc doc, string name)
+        GltfRhinoConverter converter = null;
+
+        public RhinoGltfMetallicRoughnessConverter(GltfRhinoConverter converter, System.Drawing.Bitmap bmp, Rhino.RhinoDoc doc, string name)
         {
+            this.converter = converter;      
+
             System.Drawing.Bitmap metalnessBitmap = new System.Drawing.Bitmap(bmp.Width, bmp.Height);
 
             System.Drawing.Bitmap roughnessBitmap = new System.Drawing.Bitmap(bmp.Width, bmp.Height);
@@ -28,21 +32,12 @@ namespace glTF_BinImporter
                 }
             }
 
-            MetallicTexture = Rhino.Render.RenderTexture.NewBitmapTexture(metalnessBitmap, doc);
+            string metallicName = name + "-Metallic";
+            string roughnessName = name + "-Roughness";
 
-            MetallicTexture.BeginChange(Rhino.Render.RenderContent.ChangeContexts.Program);
+            MetallicTexture = converter.GetRenderTextureFromBitmap(metalnessBitmap, metallicName);
 
-            MetallicTexture.Name = name + "-Metallic";
-
-            MetallicTexture.EndChange();
-
-            RoughnessTexture = Rhino.Render.RenderTexture.NewBitmapTexture(roughnessBitmap, doc);
-
-            RoughnessTexture.BeginChange(Rhino.Render.RenderContent.ChangeContexts.Program);
-
-            RoughnessTexture.Name = name + "-Roughness";
-
-            RoughnessTexture.EndChange();
+            RoughnessTexture = converter.GetRenderTextureFromBitmap(roughnessBitmap, roughnessName);
         }
 
         public Rhino.Render.RenderTexture MetallicTexture

@@ -598,9 +598,9 @@ namespace glTF_BinImporter
 
                 if (vertexColorAccessor.Type == glTFLoader.Schema.Accessor.TypeEnum.VEC3)
                 {
-                    float r = GltfUtils.Clamp(vertexColors[index + 0], 0.0f, 1.0f);
-                    float g = GltfUtils.Clamp(vertexColors[index + 1], 0.0f, 1.0f);
-                    float b = GltfUtils.Clamp(vertexColors[index + 2], 0.0f, 1.0f);
+                    float r = GltfUtils.Clampf(vertexColors[index + 0], 0.0f, 1.0f);
+                    float g = GltfUtils.Clampf(vertexColors[index + 1], 0.0f, 1.0f);
+                    float b = GltfUtils.Clampf(vertexColors[index + 2], 0.0f, 1.0f);
 
                     Rhino.Display.Color4f color = new Rhino.Display.Color4f(r, g, b, 1.0f);
 
@@ -608,10 +608,10 @@ namespace glTF_BinImporter
                 }
                 else if (vertexColorAccessor.Type == glTFLoader.Schema.Accessor.TypeEnum.VEC4)
                 {
-                    float r = GltfUtils.Clamp(vertexColors[index + 0], 0.0f, 1.0f);
-                    float g = GltfUtils.Clamp(vertexColors[index + 1], 0.0f, 1.0f);
-                    float b = GltfUtils.Clamp(vertexColors[index + 2], 0.0f, 1.0f);
-                    float a = GltfUtils.Clamp(vertexColors[index + 3], 0.0f, 1.0f);
+                    float r = GltfUtils.Clampf(vertexColors[index + 0], 0.0f, 1.0f);
+                    float g = GltfUtils.Clampf(vertexColors[index + 1], 0.0f, 1.0f);
+                    float b = GltfUtils.Clampf(vertexColors[index + 2], 0.0f, 1.0f);
+                    float a = GltfUtils.Clampf(vertexColors[index + 3], 0.0f, 1.0f);
 
                     Rhino.Display.Color4f color = new Rhino.Display.Color4f(r, g, b, a);
 
