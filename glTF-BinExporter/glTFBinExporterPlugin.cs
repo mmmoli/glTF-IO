@@ -28,8 +28,8 @@ namespace glTF_BinExporter
         {
             FileTypeList typeList = new FileTypeList();
 
-            typeList.AddFileType(Rhino.UI.LOC.STR("glTF text file (*.gltf)"), "gltf", true);
-            typeList.AddFileType(Rhino.UI.LOC.STR("glTF binary file (*.glb)"), "glb", true);
+            typeList.AddFileType(Rhino.UI.Localization.LocalizeString("glTF text file (*.gltf)", 1), "gltf", true);
+            typeList.AddFileType(Rhino.UI.Localization.LocalizeString("glTF binary file (*.glb)", 2), "glb", true);
 
             return typeList;
         }
