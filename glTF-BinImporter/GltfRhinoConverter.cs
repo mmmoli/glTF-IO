@@ -413,7 +413,7 @@ namespace glTF_BinImporter
         {
           return img.Name;
         }
-        else if(!img.Uri.StartsWith("data:image/")) //if its not an embedded image in a binary buffer this gets the filename
+        else if(img.Uri != null && !img.Uri.StartsWith("data:image/")) //if its not an embedded image in a binary buffer this gets the filename
         {
           return Path.GetFileNameWithoutExtension(img.Uri);
         }
