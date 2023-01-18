@@ -49,6 +49,7 @@
     <Compile Include="RhinoDocGltfConverter.cs" />
     <Compile Include="RhinoMaterialGltfConverter.cs" />
     <Compile Include="RhinoMeshGltfConverter.cs" />
+    <Compile Include="RhinoPointCloudGltfConverter.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

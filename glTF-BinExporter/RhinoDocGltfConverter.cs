@@ -93,6 +93,27 @@ namespace glTF_BinExporter
       dummy.ExtensionsUsed.Add(glTFExtensions.KHR_materials_ior.Tag);
       dummy.ExtensionsUsed.Add(glTFExtensions.KHR_materials_specular.Tag);
 
+      IEnumerable<Rhino.DocObjects.RhinoObject> pointClouds = objects.Where(x => x.ObjectType == Rhino.DocObjects.ObjectType.PointSet);
+
+      foreach (Rhino.DocObjects.RhinoObject rhinoObject in pointClouds)
+      {
+        RhinoPointCloudGltfConverter converter = new RhinoPointCloudGltfConverter(rhinoObject, options, binary, dummy, binaryBuffer);
+        int meshIndex = converter.AddPointCloud();
+
+        if (meshIndex != -1)
+        {
+          glTFLoader.Schema.Node node = new glTFLoader.Schema.Node()
+          {
+            Mesh = meshIndex,
+            Name = GetObjectName(rhinoObject),
+          };
+
+          int nodeIndex = dummy.Nodes.AddAndReturnIndex(node);
+
+          AddNode(nodeIndex, rhinoObject);
+        }
+      }
+
       var sanitized = SanitizeRhinoObjects(objects);
 
       foreach (ObjectExportData exportData in sanitized)
@@ -110,14 +131,7 @@ namespace glTF_BinExporter
 
         int nodeIndex = dummy.Nodes.AddAndReturnIndex(node);
 
-        if (options.ExportLayers)
-        {
-          AddToLayer(doc.Layers[exportData.Object.Attributes.LayerIndex], nodeIndex);
-        }
-        else
-        {
-          dummy.Scenes[dummy.Scene].Nodes.Add(nodeIndex);
-        }
+        AddNode(nodeIndex, exportData.Object);
       }
 
       if (binary && binaryBuffer.Count > 0)
@@ -131,6 +145,18 @@ namespace glTF_BinExporter
       }
 
       return dummy.ToSchemaGltf();
+    }
+
+    private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
+    {
+      if (options.ExportLayers)
+      {
+        AddToLayer(doc.Layers[rhinoObject.Attributes.LayerIndex], nodeIndex);
+      }
+      else
+      {
+        dummy.Scenes[dummy.Scene].Nodes.Add(nodeIndex);
+      }
     }
 
     private void AddToLayer(Rhino.DocObjects.Layer layer, int child)
