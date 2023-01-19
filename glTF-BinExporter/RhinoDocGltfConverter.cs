@@ -116,17 +116,27 @@ namespace glTF_BinExporter
 
       var sanitized = SanitizeRhinoObjects(objects);
 
+            Dictionary<Guid, int> map = new();
+
       foreach (ObjectExportData exportData in sanitized)
       {
         int? materialIndex = GetMaterial(exportData.RenderMaterial, exportData.Object);
 
-        RhinoMeshGltfConverter meshConverter = new RhinoMeshGltfConverter(exportData, materialIndex, options, binary, dummy, binaryBuffer);
-        int meshIndex = meshConverter.AddMesh();
+        var id = exportData.Object.Id;
+
+        if (!map.TryGetValue(id, out int meshIndex))
+        {
+            RhinoMeshGltfConverter meshConverter = new RhinoMeshGltfConverter(exportData, materialIndex, options, binary, dummy, binaryBuffer);
+            meshIndex = meshConverter.AddMesh();
+            map.Add(id, meshIndex);
+        }
+
 
         glTFLoader.Schema.Node node = new glTFLoader.Schema.Node()
         {
           Mesh = meshIndex,
           Name = GetObjectName(exportData.Object),
+          Matrix = GetMatrix(exportData.Transform)
         };
 
         int nodeIndex = dummy.Nodes.AddAndReturnIndex(node);
@@ -147,7 +157,43 @@ namespace glTF_BinExporter
       return dummy.ToSchemaGltf();
     }
 
-    private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
+        float[] GetMatrix(Transform t)
+        {
+            if (options.MapRhinoZToGltfY)
+            {
+                t = ToYUp(ref t);
+            }
+
+            return t.ToFloatArray(false);
+        }
+
+        Transform ToYUp(ref Transform t)
+        {
+            Transform r = default;
+            r.M00 = t.M00;
+            r.M01 = t.M02;
+            r.M02 = t.M01;
+            r.M03 = t.M03;
+
+            r.M10 = t.M20;
+            r.M11 = t.M22;
+            r.M12 = t.M21;
+            r.M13 = t.M23;
+
+            r.M20 = t.M10;
+            r.M21 = t.M12;
+            r.M22 = t.M11;
+            r.M23 = t.M13;
+
+            r.M30 = t.M30;
+            r.M31 = t.M32;
+            r.M32 = t.M31;
+            r.M33 = t.M33;
+
+            return r;
+        }
+
+        private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
     {
       if (options.ExportLayers)
       {
@@ -399,7 +445,7 @@ namespace glTF_BinExporter
           {
             Rhino.Geometry.Mesh mesh = Rhino.Geometry.Mesh.CreateFromSubDControlNet(subd);
 
-            mesh.Transform(item.Transform);
+                        //mesh.Transform(item.Transform);
 
             item.Meshes = new Rhino.Geometry.Mesh[] { mesh };
           }
@@ -409,7 +455,7 @@ namespace glTF_BinExporter
 
             Rhino.Geometry.Mesh mesh = Rhino.Geometry.Mesh.CreateFromSubD(subd, level);
 
-            mesh.Transform(item.Transform);
+                        //mesh.Transform(item.Transform);
 
             item.Meshes = new Rhino.Geometry.Mesh[] { mesh };
           }
@@ -428,7 +474,7 @@ namespace glTF_BinExporter
           foreach (Rhino.Geometry.Mesh mesh in meshes)
           {
             mesh.EnsurePrivateCopy();
-            mesh.Transform(item.Transform);
+            //mesh.Transform(item.Transform);
           }
 
           //Remove bad meshes
