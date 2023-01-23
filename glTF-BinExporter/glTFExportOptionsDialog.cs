@@ -209,9 +209,14 @@ namespace glTF_BinExporter
         Spacing = DefaultSpacing,
         Rows =
         {
-          new TableRow(tabControl),
-          null,
-          new TableRow(useSettingsDontShowDialogCheck),
+          new TableRow(tabControl)
+          {
+            ScaleHeight = true,
+          },
+          new TableRow(useSettingsDontShowDialogCheck)
+          {
+            ScaleHeight = false,
+          },
           new TableRow(new TableLayout()
           {
             Padding = DefaultPadding,
@@ -220,7 +225,10 @@ namespace glTF_BinExporter
             {
               new TableRow(new TableCell(cancelButton, true), new TableCell(okButton, true)),
             }
-          }),
+          })
+          {
+            ScaleHeight = false,
+          },
         }
       };
     }
