@@ -20,6 +20,7 @@
         <Compile Include="..\glTF-BinExporter\Constants.cs" />
         <Compile Include="..\glTF-BinExporter\GlTFUtils.cs" />
         <Compile Include="..\glTF-BinExporter\RhinoMaterialGltfConverter.cs" />
+        <Compile Include="..\glTF-BinExporter\RhinoPointCloudGltfConverter.cs" />
 
         <Compile Include="..\glTFExtensions\*.cs" />
     </ItemGroup>

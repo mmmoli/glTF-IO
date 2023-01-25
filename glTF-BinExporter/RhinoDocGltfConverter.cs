@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Rhino;
+using Rhino.Display;
+using Rhino.Geometry;
 
 namespace glTF_BinExporter
 {
@@ -116,7 +118,7 @@ namespace glTF_BinExporter
 
       var sanitized = SanitizeRhinoObjects(objects);
 
-            Dictionary<Guid, int> map = new();
+      Dictionary<Guid, int> map = new();
 
       foreach (ObjectExportData exportData in sanitized)
       {
@@ -157,43 +159,43 @@ namespace glTF_BinExporter
       return dummy.ToSchemaGltf();
     }
 
-        float[] GetMatrix(Transform t)
+    float[] GetMatrix(Transform t)
+    {
+        if (options.MapRhinoZToGltfY)
         {
-            if (options.MapRhinoZToGltfY)
-            {
-                t = ToYUp(ref t);
-            }
-
-            return t.ToFloatArray(false);
+            t = ToYUp(ref t);
         }
 
-        Transform ToYUp(ref Transform t)
-        {
-            Transform r = default;
-            r.M00 = t.M00;
-            r.M01 = t.M02;
-            r.M02 = t.M01;
-            r.M03 = t.M03;
+        return t.ToFloatArray(false);
+    }
 
-            r.M10 = t.M20;
-            r.M11 = t.M22;
-            r.M12 = t.M21;
-            r.M13 = t.M23;
+    Transform ToYUp(ref Transform t)
+    {
+        Transform r = default;
+        r.M00 = t.M00;
+        r.M01 = t.M02;
+        r.M02 = t.M01;
+        r.M03 = t.M03;
 
-            r.M20 = t.M10;
-            r.M21 = t.M12;
-            r.M22 = t.M11;
-            r.M23 = t.M13;
+        r.M10 = t.M20;
+        r.M11 = t.M22;
+        r.M12 = t.M21;
+        r.M13 = t.M23;
 
-            r.M30 = t.M30;
-            r.M31 = t.M32;
-            r.M32 = t.M31;
-            r.M33 = t.M33;
+        r.M20 = t.M10;
+        r.M21 = t.M12;
+        r.M22 = t.M11;
+        r.M23 = t.M13;
 
-            return r;
-        }
+        r.M30 = t.M30;
+        r.M31 = t.M32;
+        r.M32 = t.M31;
+        r.M33 = t.M33;
 
-        private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
+        return r;
+    }
+
+    private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
     {
       if (options.ExportLayers)
       {
@@ -263,7 +265,6 @@ namespace glTF_BinExporter
       if (material == null && options.UseDisplayColorForUnsetMaterials)
       {
         Rhino.Display.Color4f objectColor = GetObjectColor(rhinoObject);
-        return CreateSolidColorMaterial(objectColor);
 
         if (objectColor != Color4f.Black)
         {
@@ -271,8 +272,8 @@ namespace glTF_BinExporter
         }
       }
 
-
       material ??= DefaultMaterial;
+
       Guid materialId = material.Id;
 
       if (!materialsMap.TryGetValue(materialId, out int materialIndex))

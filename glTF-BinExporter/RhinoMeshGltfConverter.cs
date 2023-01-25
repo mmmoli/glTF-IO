@@ -1,3 +1,4 @@
+using Rhino;
 using Rhino.Display;
 using Rhino.FileIO;
 using Rhino.Geometry;
@@ -46,10 +47,15 @@ namespace glTF_BinExporter
 
     private void PreprocessMesh(Mesh rhinoMesh)
     {
+      var doc = exportData.Object.Document;
+      var scale = RhinoMath.MetersPerUnit(doc.ModelUnitSystem);
+      var transform = Transform.Scale(Point3d.Origin, scale);
+
       if (options.MapRhinoZToGltfY)
       {
-        rhinoMesh.Transform(Constants.ZtoYUp);
+        transform *= Constants.ZtoYUp;
       }
+      rhinoMesh.Transform(transform);
 
       rhinoMesh.TextureCoordinates.ReverseTextureCoordinates(1);
     }
