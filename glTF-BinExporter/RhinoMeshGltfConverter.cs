@@ -47,16 +47,6 @@ namespace glTF_BinExporter
 
     private void PreprocessMesh(Mesh rhinoMesh)
     {
-      var doc = exportData.Object.Document;
-      var scale = RhinoMath.MetersPerUnit(doc.ModelUnitSystem);
-      var transform = Transform.Scale(Point3d.Origin, scale);
-
-      if (options.MapRhinoZToGltfY)
-      {
-        transform *= Constants.ZtoYUp;
-      }
-      rhinoMesh.Transform(transform);
-
       rhinoMesh.TextureCoordinates.ReverseTextureCoordinates(1);
     }
 
@@ -730,7 +720,7 @@ namespace glTF_BinExporter
           dracoGeoInfo.IndicesMax = dracoGeoInfo.VerticesCount - 1;
 
           dracoGeoInfo.NormalsCount = mesh.Normals.Count;
-          if(dracoGeoInfo.NormalsCount > 0)
+          if (dracoGeoInfo.NormalsCount > 0)
           {
             dracoGeoInfo.NormalsMin = mesh.Normals.Min();
             dracoGeoInfo.NormalsMax = mesh.Normals.Max();

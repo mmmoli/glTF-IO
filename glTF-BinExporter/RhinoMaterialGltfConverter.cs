@@ -49,6 +49,7 @@ namespace glTF_BinExporter
             {
                 Name = renderMaterial.Name,
                 PbrMetallicRoughness = new glTFLoader.Schema.MaterialPbrMetallicRoughness(),
+                DoubleSided = true
             };
 
             if (!rhinoMaterial.IsPhysicallyBased)

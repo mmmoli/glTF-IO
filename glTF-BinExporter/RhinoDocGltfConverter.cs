@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using glTFLoader.Schema;
 using Rhino;
 using Rhino.Display;
+using Rhino.DocObjects;
 using Rhino.Geometry;
+using Rhino.Render;
 
 namespace glTF_BinExporter
 {
@@ -15,30 +18,23 @@ namespace glTF_BinExporter
     public Rhino.Geometry.Transform Transform = Rhino.Geometry.Transform.Identity;
     public Rhino.Render.RenderMaterial RenderMaterial = null;
     public Rhino.DocObjects.RhinoObject Object = null;
+    public int? MaterialIndex = null;
   }
 
   class RhinoDocGltfConverter
   {
-    public RhinoDocGltfConverter(glTFExportOptions options, bool binary, RhinoDoc doc, IEnumerable<Rhino.DocObjects.RhinoObject> objects, Rhino.Render.LinearWorkflow workflow)
+    public RhinoDocGltfConverter(glTFExportOptions options, bool binary, RhinoDoc doc, IEnumerable<Rhino.DocObjects.RhinoObject> objects, Rhino.Render.LinearWorkflow workflow, Action<List<ObjectExportData>> meshTransform = null)
     {
       this.doc = doc;
       this.options = options;
       this.binary = binary;
       this.objects = objects;
       this.workflow = workflow;
-    }
-
-    public RhinoDocGltfConverter(glTFExportOptions options, bool binary, RhinoDoc doc, Rhino.Render.LinearWorkflow workflow)
-    {
-      this.doc = doc;
-      this.options = options;
-      this.binary = binary;
-      this.objects = doc.Objects;
-      this.workflow = null;
+      this.meshTransform = meshTransform;
     }
 
     private RhinoDoc doc = null;
-
+    private Action<List<ObjectExportData>> meshTransform;
     private IEnumerable<Rhino.DocObjects.RhinoObject> objects = null;
 
     private bool binary = false;
@@ -46,6 +42,7 @@ namespace glTF_BinExporter
     private Rhino.Render.LinearWorkflow workflow = null;
 
     private Dictionary<Guid, int> materialsMap = new Dictionary<Guid, int>();
+    private Dictionary<(int, int, int), int> solidColorMaterialsMap = new();
 
     private gltfSchemaDummy dummy = new gltfSchemaDummy();
 
@@ -118,21 +115,26 @@ namespace glTF_BinExporter
 
       var sanitized = SanitizeRhinoObjects(objects);
 
+      foreach (var exportData in sanitized)
+      {
+        exportData.MaterialIndex = GetMaterial(exportData.RenderMaterial, exportData.Object);
+      }
+
+      meshTransform?.Invoke(sanitized);
+
       Dictionary<Guid, int> map = new();
 
       foreach (ObjectExportData exportData in sanitized)
       {
-        int? materialIndex = GetMaterial(exportData.RenderMaterial, exportData.Object);
-
         var id = exportData.Object.Id;
 
         if (!map.TryGetValue(id, out int meshIndex))
         {
-            RhinoMeshGltfConverter meshConverter = new RhinoMeshGltfConverter(exportData, materialIndex, options, binary, dummy, binaryBuffer);
-            meshIndex = meshConverter.AddMesh();
-            map.Add(id, meshIndex);
+          int? materialIndex = exportData.MaterialIndex;
+          RhinoMeshGltfConverter meshConverter = new RhinoMeshGltfConverter(exportData, materialIndex, options, binary, dummy, binaryBuffer);
+          meshIndex = meshConverter.AddMesh();
+          map.Add(id, meshIndex);
         }
-
 
         glTFLoader.Schema.Node node = new glTFLoader.Schema.Node()
         {
@@ -161,38 +163,16 @@ namespace glTF_BinExporter
 
     float[] GetMatrix(Transform t)
     {
-        if (options.MapRhinoZToGltfY)
-        {
-            t = ToYUp(ref t);
-        }
+      var scale = RhinoMath.MetersPerUnit(doc.ModelUnitSystem);
+      var trans = Transform.Scale(Point3d.Origin, scale);
 
-        return t.ToFloatArray(false);
-    }
+      if (options.MapRhinoZToGltfY)
+      {
+        trans *= Constants.ZtoYUp;
+      }
 
-    Transform ToYUp(ref Transform t)
-    {
-        Transform r = default;
-        r.M00 = t.M00;
-        r.M01 = t.M02;
-        r.M02 = t.M01;
-        r.M03 = t.M03;
-
-        r.M10 = t.M20;
-        r.M11 = t.M22;
-        r.M12 = t.M21;
-        r.M13 = t.M23;
-
-        r.M20 = t.M10;
-        r.M21 = t.M12;
-        r.M22 = t.M11;
-        r.M23 = t.M13;
-
-        r.M30 = t.M30;
-        r.M31 = t.M32;
-        r.M32 = t.M31;
-        r.M33 = t.M33;
-
-        return r;
+      t = trans * t;
+      return t.ToFloatArray(false);
     }
 
     private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
@@ -264,11 +244,21 @@ namespace glTF_BinExporter
 
       if (material == null && options.UseDisplayColorForUnsetMaterials)
       {
-        Rhino.Display.Color4f objectColor = GetObjectColor(rhinoObject);
+        var objectColor = GetObjectColor(rhinoObject);
 
-        if (objectColor != Color4f.Black)
+        if (objectColor != System.Drawing.Color.FromArgb(255, 0, 0, 0))
         {
-          return CreateSolidColorMaterial(objectColor);
+          var key = (objectColor.R, objectColor.G, objectColor.B);
+
+          if (solidColorMaterialsMap.TryGetValue(key, out int matId))
+          {
+            return matId;
+          }
+
+          var colorf = new Rhino.Display.Color4f(objectColor);
+          matId = CreateSolidColorMaterial(colorf);
+          solidColorMaterialsMap.Add(key, matId);
+          return matId;
         }
       }
 
@@ -299,70 +289,18 @@ namespace glTF_BinExporter
       return dummy.Materials.AddAndReturnIndex(material);
     }
 
-    Rhino.Display.Color4f GetObjectColor(Rhino.DocObjects.RhinoObject rhinoObject)
+    System.Drawing.Color GetObjectColor(Rhino.DocObjects.RhinoObject rhinoObject)
     {
       if (rhinoObject.Attributes.ColorSource == Rhino.DocObjects.ObjectColorSource.ColorFromLayer)
       {
         int layerIndex = rhinoObject.Attributes.LayerIndex;
 
-        return new Rhino.Display.Color4f(rhinoObject.Document.Layers[layerIndex].Color);
+        return rhinoObject.Document.Layers[layerIndex].Color;
       }
       else
       {
-        return new Rhino.Display.Color4f(rhinoObject.Attributes.ObjectColor);
+        return rhinoObject.Attributes.ObjectColor;
       }
-    }
-
-    public Rhino.Geometry.Mesh[] GetMeshes(Rhino.DocObjects.RhinoObject rhinoObject)
-    {
-
-      if (rhinoObject.ObjectType == Rhino.DocObjects.ObjectType.Mesh)
-      {
-        Rhino.DocObjects.MeshObject meshObj = rhinoObject as Rhino.DocObjects.MeshObject;
-
-        return new Rhino.Geometry.Mesh[] { meshObj.MeshGeometry };
-      }
-      else if (rhinoObject.ObjectType == Rhino.DocObjects.ObjectType.SubD)
-      {
-        Rhino.DocObjects.SubDObject subdObject = rhinoObject as Rhino.DocObjects.SubDObject;
-
-        Rhino.Geometry.SubD subd = subdObject.Geometry as Rhino.Geometry.SubD;
-
-        Rhino.Geometry.Mesh mesh = null;
-
-        if (options.SubDExportMode == SubDMode.ControlNet)
-        {
-          mesh = Rhino.Geometry.Mesh.CreateFromSubDControlNet(subd);
-        }
-        else
-        {
-          int level = options.SubDLevel;
-
-          mesh = Rhino.Geometry.Mesh.CreateFromSubD(subd, level);
-        }
-
-        return new Rhino.Geometry.Mesh[] { mesh };
-      }
-
-      // Need to get a Mesh from the None-mesh object. Using the FastRenderMesh here. Could be made configurable.
-      // First make sure the internal rhino mesh has been created
-      rhinoObject.CreateMeshes(Rhino.Geometry.MeshType.Preview, Rhino.Geometry.MeshingParameters.FastRenderMesh, true);
-
-      // Then get the internal rhino meshes
-      Rhino.Geometry.Mesh[] meshes = rhinoObject.GetMeshes(Rhino.Geometry.MeshType.Preview);
-
-      List<Rhino.Geometry.Mesh> validMeshes = new List<Rhino.Geometry.Mesh>();
-
-      foreach (Rhino.Geometry.Mesh mesh in meshes)
-      {
-        if (MeshIsValidForExport(mesh))
-        {
-          mesh.EnsurePrivateCopy();
-          validMeshes.Add(mesh);
-        }
-      }
-
-      return validMeshes.ToArray();
     }
 
     public bool MeshIsValidForExport(Rhino.Geometry.Mesh mesh)
@@ -440,26 +378,14 @@ namespace glTF_BinExporter
       {
         //Mesh
 
-        if (item.Object.ObjectType == Rhino.DocObjects.ObjectType.SubD && item.Object.Geometry is Rhino.Geometry.SubD subd)
+        if (item.Object.ObjectType == Rhino.DocObjects.ObjectType.SubD
+            && item.Object.Geometry is Rhino.Geometry.SubD subd
+            && options.SubDExportMode == SubDMode.ControlNet
+            )
         {
-          if (options.SubDExportMode == SubDMode.ControlNet)
-          {
-            Rhino.Geometry.Mesh mesh = Rhino.Geometry.Mesh.CreateFromSubDControlNet(subd);
-
-                        //mesh.Transform(item.Transform);
-
-            item.Meshes = new Rhino.Geometry.Mesh[] { mesh };
-          }
-          else
-          {
-            int level = options.SubDLevel;
-
-            Rhino.Geometry.Mesh mesh = Rhino.Geometry.Mesh.CreateFromSubD(subd, level);
-
-                        //mesh.Transform(item.Transform);
-
-            item.Meshes = new Rhino.Geometry.Mesh[] { mesh };
-          }
+          Rhino.Geometry.Mesh mesh = Rhino.Geometry.Mesh.CreateFromSubDControlNet(subd);
+          //mesh.Transform(item.Transform);
+          item.Meshes = new Rhino.Geometry.Mesh[] { mesh };
         }
         else
         {
@@ -472,11 +398,11 @@ namespace glTF_BinExporter
 
           List<Rhino.Geometry.Mesh> meshes = new List<Rhino.Geometry.Mesh>(item.Object.GetMeshes(Rhino.Geometry.MeshType.Render));
 
-          foreach (Rhino.Geometry.Mesh mesh in meshes)
-          {
-            mesh.EnsurePrivateCopy();
-            //mesh.Transform(item.Transform);
-          }
+          //foreach (Rhino.Geometry.Mesh mesh in meshes)
+          //{
+          //  mesh.EnsurePrivateCopy();
+          //  mesh.Transform(item.Transform);
+          //}
 
           //Remove bad meshes
           meshes.RemoveAll(x => x == null || !MeshIsValidForExport(x));
