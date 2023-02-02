@@ -1,12 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Rhino;
-using Rhino.DocObjects;
 using Rhino.Geometry;
-using Rhino.Render;
 
 namespace glTF_BinExporter
 {

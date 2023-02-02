@@ -3,12 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using glTFLoader.Schema;
 using Rhino;
-using Rhino.Display;
-using Rhino.DocObjects;
 using Rhino.Geometry;
-using Rhino.Render;
 
 namespace glTF_BinExporter
 {
@@ -51,6 +47,7 @@ namespace glTF_BinExporter
     private Dictionary<int, glTFLoader.Schema.Node> layers = new Dictionary<int, glTFLoader.Schema.Node>();
 
     private Rhino.Render.RenderMaterial defaultMaterial = null;
+
     private Rhino.Render.RenderMaterial DefaultMaterial
     {
       get
@@ -63,6 +60,7 @@ namespace glTF_BinExporter
         return defaultMaterial;
       }
     }
+
     public glTFLoader.Schema.Gltf ConvertToGltf()
     {
       dummy.Scene = 0;
@@ -140,7 +138,7 @@ namespace glTF_BinExporter
         {
           Mesh = meshIndex,
           Name = GetObjectName(exportData.Object),
-          Matrix = GetMatrix(exportData.Transform)
+          Matrix = GetMatrix(exportData.Transform),
         };
 
         int nodeIndex = dummy.Nodes.AddAndReturnIndex(node);
@@ -164,15 +162,29 @@ namespace glTF_BinExporter
     float[] GetMatrix(Transform t)
     {
       var scale = RhinoMath.MetersPerUnit(doc.ModelUnitSystem);
-      var trans = Transform.Scale(Point3d.Origin, scale);
 
-      if (options.MapRhinoZToGltfY)
-      {
-        trans *= Constants.ZtoYUp;
-      }
+      Transform r = default;
+      r.M00 = t.M00;
+      r.M01 = t.M02;
+      r.M02 = -t.M01;
+      r.M03 = t.M03 * scale;
 
-      t = trans * t;
-      return t.ToFloatArray(false);
+      r.M10 = t.M20;
+      r.M11 = t.M22;
+      r.M12 = -t.M21;
+      r.M13 = t.M23 * scale;
+
+      r.M20 = -t.M10;
+      r.M21 = -t.M12;
+      r.M22 = t.M11;
+      r.M23 = -t.M13 * scale;
+
+      r.M30 = t.M30;
+      r.M31 = t.M32;
+      r.M32 = -t.M31;
+      r.M33 = t.M33;
+
+      return r.ToFloatArray(false);
     }
 
     private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)
@@ -283,7 +295,8 @@ namespace glTF_BinExporter
         PbrMetallicRoughness = new glTFLoader.Schema.MaterialPbrMetallicRoughness()
         {
           BaseColorFactor = color.ToFloatArray(),
-        }
+        },
+        DoubleSided = true
       };
 
       return dummy.Materials.AddAndReturnIndex(material);
@@ -326,16 +339,6 @@ namespace glTF_BinExporter
       }
 
       return true;
-    }
-
-    private string GetDebugName(Rhino.DocObjects.RhinoObject rhinoObject)
-    {
-      if (string.IsNullOrEmpty(rhinoObject.Name))
-      {
-        return "(Unnamed)";
-      }
-
-      return rhinoObject.Name;
     }
 
     public List<ObjectExportData> SanitizeRhinoObjects(IEnumerable<Rhino.DocObjects.RhinoObject> rhinoObjects)

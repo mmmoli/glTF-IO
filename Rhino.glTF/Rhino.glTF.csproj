@@ -1,33 +1,34 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net48</TargetFramework>
-        <LangVersion>latest</LangVersion>
-        
-        <PackageId>Rhino.glTF</PackageId>
-        <Version>1.1.1</Version>
-        <Authors>Aske Doerge;Joshua Kennedy;Peter Krattenmacher;Ali Tehami</Authors>
-        <Description>Export glTF and glb from Rhino</Description>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
 
-    <ItemGroup>
-        <Compile Include="..\glTF-BinExporter\RhinoDocGltfConverter.cs" />
-        <Compile Include="..\glTF-BinExporter\gltfSchemaDummy.cs" />
-        <Compile Include="..\glTF-BinExporter\gltfSchemaSceneDummy.cs" />
-        <Compile Include="..\glTF-BinExporter\RhinoMeshGltfConverter.cs" />
-        <Compile Include="..\glTF-BinExporter\Constants.cs" />
-        <Compile Include="..\glTF-BinExporter\GlTFUtils.cs" />
-        <Compile Include="..\glTF-BinExporter\RhinoMaterialGltfConverter.cs" />
-        <Compile Include="..\glTF-BinExporter\RhinoPointCloudGltfConverter.cs" />
+    <PackageId>Rhino.glTF</PackageId>
+    <Version>1.1.1</Version>
+    <Authors>Aske Doerge;Joshua Kennedy;Peter Krattenmacher;Ali Tehami</Authors>
+    <Description>Export glTF and glb from Rhino</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
 
-        <Compile Include="..\glTFExtensions\*.cs" />
-    </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\glTF-BinExporter\RhinoDocGltfConverter.cs" />
+    <Compile Include="..\glTF-BinExporter\gltfSchemaDummy.cs" />
+    <Compile Include="..\glTF-BinExporter\gltfSchemaSceneDummy.cs" />
+    <Compile Include="..\glTF-BinExporter\RhinoMeshGltfConverter.cs" />
+    <Compile Include="..\glTF-BinExporter\Constants.cs" />
+    <Compile Include="..\glTF-BinExporter\GlTFUtils.cs" />
+    <Compile Include="..\glTF-BinExporter\RhinoMaterialGltfConverter.cs" />
+    <Compile Include="..\glTF-BinExporter\RhinoPointCloudGltfConverter.cs" />
 
-    <ItemGroup>
-        <PackageReference Include="glTF2Loader" Version="1.1.4-alpha" />
-        <PackageReference Include="RhinoCommon" Version="7.18.22124.3001" IncludeAssets="compile;build" />
-    </ItemGroup>
+    <Compile Include="..\glTFExtensions\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="glTF2Loader" Version="1.1.4-alpha" />
+    <PackageReference Include="RhinoCommon" Version="7.18.22124.3001" IncludeAssets="compile;build" />
+  </ItemGroup>
 
 </Project>

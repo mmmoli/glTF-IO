@@ -1,9 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Rhino.DocObjects;
 using glTF_BinExporter;
-using System;
 
 namespace Rhino.glTF;
 

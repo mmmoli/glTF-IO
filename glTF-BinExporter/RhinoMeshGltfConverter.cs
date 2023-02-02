@@ -177,7 +177,6 @@ namespace glTF_BinExporter
       return currentGeometryInfo.Success;
     }
 
-
     private int GetVertexAccessor(MeshVertexList vertices)
     {
       int? vertexBufferViewIdx = GetVertexBufferView(vertices, out Point3d min, out Point3d max, out int countVertices);
@@ -256,25 +255,26 @@ namespace glTF_BinExporter
       min = new Point3d(Double.PositiveInfinity, Double.PositiveInfinity, Double.PositiveInfinity);
       max = new Point3d(Double.NegativeInfinity, Double.NegativeInfinity, Double.NegativeInfinity);
 
-      List<float> floats = new List<float>(vertices.Count * 3);
+      // TODO: Add bbox for draco compression
+      //  min.X = Math.Min(min.X, vertex.X);
+      //  max.X = Math.Max(max.X, vertex.X);
+      //  min.Y = Math.Min(min.Y, vertex.Y);
+      //  max.Y = Math.Max(max.Y, vertex.Y);
+      //  min.Z = Math.Min(min.Z, vertex.Z);
+      //  max.Z = Math.Max(max.Z, vertex.Z);
 
-      foreach (Point3d vertex in vertices)
+      var floats = vertices.ToFloatArray();
+      var scale = (float)RhinoMath.MetersPerUnit(exportData.Object.Document.ModelUnitSystem);
+
+      for (int i = 0; i < floats.Length; i += 3)
       {
-        floats.AddRange(new float[] { (float)vertex.X, (float)vertex.Y, (float)vertex.Z });
-
-        min.X = Math.Min(min.X, vertex.X);
-        max.X = Math.Max(max.X, vertex.X);
-
-        min.Y = Math.Min(min.Y, vertex.Y);
-        max.Y = Math.Max(max.Y, vertex.Y);
-
-        min.Z = Math.Min(min.Z, vertex.Z);
-        max.Z = Math.Max(max.Z, vertex.Z);
+        floats[i + 0] *= scale;
+        (floats[i + 1], floats[i + 2]) = (floats[i + 2] * scale, -floats[i + 1] * scale);
       }
 
-      IEnumerable<byte> bytesEnumerable = floats.SelectMany(value => BitConverter.GetBytes(value));
-
-      return bytesEnumerable.ToArray();
+      var bytes = new byte[floats.Length * 4];
+      Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
+      return bytes;
     }
 
     private int GetIndicesAccessor(MeshFaceList faces, int verticesCount)
@@ -352,26 +352,14 @@ namespace glTF_BinExporter
 
     private byte[] GetIndicesBytes(MeshFaceList faces, out int indicesCount)
     {
-      List<uint> faceIndices = new List<uint>(faces.Count * 3);
+      var indices = faces.ToIntArray(true);
 
-      foreach (Rhino.Geometry.MeshFace face in faces)
-      {
-        if (face.IsTriangle)
-        {
-          faceIndices.AddRange(new uint[] { (uint)face.A, (uint)face.B, (uint)face.C });
-        }
-        else
-        {
-          //Triangulate
-          faceIndices.AddRange(new uint[] { (uint)face.A, (uint)face.B, (uint)face.C, (uint)face.A, (uint)face.C, (uint)face.D });
-        }
-      }
+      var bytes = new byte[indices.Length * 4];
+      Buffer.BlockCopy(indices, 0, bytes, 0, bytes.Length);
 
-      IEnumerable<byte> bytesEnumerable = faceIndices.SelectMany(value => BitConverter.GetBytes(value));
+      indicesCount = indices.Length;
 
-      indicesCount = faceIndices.Count;
-
-      return bytesEnumerable.ToArray();
+      return bytes;
     }
 
     private int GetNormalsAccessor(MeshVertexNormalList normals)
@@ -451,26 +439,24 @@ namespace glTF_BinExporter
       min = new Vector3f(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
       max = new Vector3f(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
 
-      //Preallocate
-      List<float> floats = new List<float>(normals.Count * 3);
+      //TODO: Add bbox for draco compression
+      //  min.X = Math.Min(min.X, normal.X);
+      //  max.X = Math.Max(max.X, normal.X);
+      //  min.Y = Math.Min(min.Y, normal.Y);
+      //  max.Y = Math.Max(max.Y, normal.Y);
+      //  max.Z = Math.Max(max.Z, normal.Z);
+      //  min.Z = Math.Min(min.Z, normal.Z);
 
-      foreach (Vector3f normal in normals)
+      var floats = normals.ToFloatArray();
+
+      for (int i = 0; i < floats.Length; i += 3)
       {
-        floats.AddRange(new float[] { normal.X, normal.Y, normal.Z });
-
-        min.X = Math.Min(min.X, normal.X);
-        max.X = Math.Max(max.X, normal.X);
-
-        min.Y = Math.Min(min.Y, normal.Y);
-        max.Y = Math.Max(max.Y, normal.Y);
-
-        max.Z = Math.Max(max.Z, normal.Z);
-        min.Z = Math.Min(min.Z, normal.Z);
+        (floats[i + 1], floats[i + 2]) = (floats[i + 2], -floats[i + 1]);
       }
 
-      IEnumerable<byte> bytesEnumerable = floats.SelectMany(value => BitConverter.GetBytes(value));
-
-      return bytesEnumerable.ToArray();
+      var bytes = new byte[floats.Length * 4];
+      Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
+      return bytes;
     }
 
     int GetTextureCoordinatesAccessor(MeshTextureCoordinateList textureCoordinates)
@@ -550,22 +536,17 @@ namespace glTF_BinExporter
       min = new Point2f(float.PositiveInfinity, float.PositiveInfinity);
       max = new Point2f(float.NegativeInfinity, float.NegativeInfinity);
 
-      List<float> coordinates = new List<float>(textureCoordinates.Count * 2);
+      //TODO: Add bbox for draco compression
+      //  min.X = Math.Min(min.X, coordinate.X);
+      //  max.X = Math.Max(max.X, coordinate.X);
+      //  min.Y = Math.Min(min.Y, coordinate.Y);
+      //  max.Y = Math.Max(max.Y, coordinate.Y);
 
-      foreach (Point2f coordinate in textureCoordinates)
-      {
-        coordinates.AddRange(new float[] { coordinate.X, coordinate.Y });
+      var floats = textureCoordinates.ToFloatArray();
 
-        min.X = Math.Min(min.X, coordinate.X);
-        max.X = Math.Max(max.X, coordinate.X);
-
-        min.Y = Math.Min(min.Y, coordinate.Y);
-        max.Y = Math.Max(max.Y, coordinate.Y);
-      }
-
-      IEnumerable<byte> bytesEnumerable = coordinates.SelectMany(value => BitConverter.GetBytes(value));
-
-      return bytesEnumerable.ToArray();
+      var bytes = new byte[floats.Length * 4];
+      Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
+      return bytes;
     }
 
     private int GetVertexColorAccessor(MeshVertexColorList vertexColors)
@@ -645,34 +626,25 @@ namespace glTF_BinExporter
 
     byte[] GetVertexColorBytes(MeshVertexColorList vertexColors, out Color4f min, out Color4f max)
     {
-      float[] minArr = new float[] { float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity };
-      float[] maxArr = new float[] { float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity };
+      min = default;
+      max = default;
 
-      List<float> colors = new List<float>(vertexColors.Count * 4);
+      //TODO: Add bbox for draco compression
+      //  minArr[0] = Math.Min(minArr[0], color.R);
+      //  minArr[1] = Math.Min(minArr[1], color.G);
+      //  minArr[2] = Math.Min(minArr[2], color.B);
+      //  minArr[3] = Math.Min(minArr[3], color.A);
 
-      for (int i = 0; i < vertexColors.Count; i++)
-      {
-        Color4f color = new Color4f(vertexColors[i]);
+      //  maxArr[0] = Math.Max(maxArr[0], color.R);
+      //  maxArr[1] = Math.Max(maxArr[1], color.G);
+      //  maxArr[2] = Math.Max(maxArr[2], color.B);
+      //  maxArr[3] = Math.Max(maxArr[3], color.A);
 
-        colors.AddRange(color.ToFloatArray());
-
-        minArr[0] = Math.Min(minArr[0], color.R);
-        minArr[1] = Math.Min(minArr[1], color.G);
-        minArr[2] = Math.Min(minArr[2], color.B);
-        minArr[3] = Math.Min(minArr[3], color.A);
-
-        maxArr[0] = Math.Max(maxArr[0], color.R);
-        maxArr[1] = Math.Max(maxArr[1], color.G);
-        maxArr[2] = Math.Max(maxArr[2], color.B);
-        maxArr[3] = Math.Max(maxArr[3], color.A);
-      }
-
-      min = new Color4f(minArr[0], minArr[1], minArr[2], minArr[3]);
-      max = new Color4f(maxArr[0], maxArr[1], maxArr[2], maxArr[3]);
-
-      IEnumerable<byte> bytesEnumerable = colors.SelectMany(value => BitConverter.GetBytes(value));
-
-      return bytesEnumerable.ToArray();
+      var floats = vertexColors.ToARGBArray();
+      //TODO:(maybe?) reorder ARGB to RGBA
+      var bytes = new byte[floats.Length * 4];
+      Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
+      return bytes;
     }
 
     public DracoGeometryInfo AddDracoGeometry(DracoCompression dracoCompression)

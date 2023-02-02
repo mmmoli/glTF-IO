@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,14 +22,14 @@ namespace glTF_BinExporter
 
         public Asset Asset = null;
 
-        public List<Buffer> Buffers = new List<Buffer>();
+        public List<glTFLoader.Schema.Buffer> Buffers = new List<glTFLoader.Schema.Buffer>();
 
         public List<BufferView> BufferViews = new List<BufferView>();
 
         public List<Camera> Cameras = new List<Camera>();
 
         public List<Image> Images = new List<Image>();
-
+    
         public List<Material> Materials = new List<Material>();
 
         public List<Mesh> Meshes = new List<Mesh>();
