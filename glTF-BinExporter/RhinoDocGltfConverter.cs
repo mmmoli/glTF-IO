@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Rhino;
-using Rhino.Geometry;
 
 namespace glTF_BinExporter
 {
@@ -19,7 +18,7 @@ namespace glTF_BinExporter
 
   class RhinoDocGltfConverter
   {
-    public RhinoDocGltfConverter(glTFExportOptions options, bool binary, RhinoDoc doc, IEnumerable<Rhino.DocObjects.RhinoObject> objects, Rhino.Render.LinearWorkflow workflow, Action<List<ObjectExportData>> meshTransform = null)
+    public RhinoDocGltfConverter(glTFExportOptions options, bool binary, RhinoDoc doc, IEnumerable<Rhino.DocObjects.RhinoObject> objects, Rhino.Render.LinearWorkflow workflow, Action<List<ObjectExportData>> meshTransform = null, Action<gltfSchemaDummy> gltfAdd = null)
     {
       this.doc = doc;
       this.options = options;
@@ -27,10 +26,12 @@ namespace glTF_BinExporter
       this.objects = objects;
       this.workflow = workflow;
       this.meshTransform = meshTransform;
+      this.gltfAdd = gltfAdd;
     }
 
     private RhinoDoc doc = null;
     private Action<List<ObjectExportData>> meshTransform;
+    private Action<gltfSchemaDummy> gltfAdd;
     private IEnumerable<Rhino.DocObjects.RhinoObject> objects = null;
 
     private bool binary = false;
@@ -138,13 +139,15 @@ namespace glTF_BinExporter
         {
           Mesh = meshIndex,
           Name = GetObjectName(exportData.Object),
-          Matrix = GetMatrix(exportData.Transform),
+          Matrix = GlTFUtils.GetMatrix(exportData.Transform, this.doc),
         };
 
         int nodeIndex = dummy.Nodes.AddAndReturnIndex(node);
 
         AddNode(nodeIndex, exportData.Object);
       }
+
+      gltfAdd?.Invoke(dummy);
 
       if (binary && binaryBuffer.Count > 0)
       {
@@ -157,34 +160,6 @@ namespace glTF_BinExporter
       }
 
       return dummy.ToSchemaGltf();
-    }
-
-    float[] GetMatrix(Transform t)
-    {
-      var scale = RhinoMath.MetersPerUnit(doc.ModelUnitSystem);
-
-      Transform r = default;
-      r.M00 = t.M00;
-      r.M01 = t.M02;
-      r.M02 = -t.M01;
-      r.M03 = t.M03 * scale;
-
-      r.M10 = t.M20;
-      r.M11 = t.M22;
-      r.M12 = -t.M21;
-      r.M13 = t.M23 * scale;
-
-      r.M20 = -t.M10;
-      r.M21 = -t.M12;
-      r.M22 = t.M11;
-      r.M23 = -t.M13 * scale;
-
-      r.M30 = t.M30;
-      r.M31 = t.M32;
-      r.M32 = -t.M31;
-      r.M33 = t.M33;
-
-      return r.ToFloatArray(false);
     }
 
     private void AddNode(int nodeIndex, Rhino.DocObjects.RhinoObject rhinoObject)

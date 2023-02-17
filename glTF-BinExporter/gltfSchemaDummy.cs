@@ -10,7 +10,7 @@ namespace glTF_BinExporter
     /// Helper class to convert to the serializeable class.
     /// Primarily just makes things lists so appending is easier.
     /// </summary>
-    class gltfSchemaDummy
+    public class gltfSchemaDummy
     {
         public List<string> ExtensionsUsed = new List<string>();
 

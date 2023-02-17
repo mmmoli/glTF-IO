@@ -1,4 +1,4 @@
-﻿using glTFLoader.Schema;
+using glTFLoader.Schema;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace glTF_BinExporter
 {
-    class gltfSchemaSceneDummy
+    public class gltfSchemaSceneDummy
     {
         public List<int> Nodes = new List<int>();
 
