@@ -64,24 +64,24 @@ namespace glTF_BinExporter
     public int BufferViewIndex;
 
     public int VerticesCount;
-    public Point3d VerticesMin;
-    public Point3d VerticesMax;
+    public float[] VerticesMin;
+    public float[] VerticesMax;
 
     public int IndicesCount;
     public float IndicesMin;
     public float IndicesMax;
 
     public int NormalsCount;
-    public Vector3f NormalsMin;
-    public Vector3f NormalsMax;
+    public float[] NormalsMin;
+    public float[] NormalsMax;
 
     public int TexCoordsCount;
-    public Point2f TexCoordsMin;
-    public Point2f TexCoordsMax;
+    public float[] TexCoordsMin;
+    public float[] TexCoordsMax;
 
     public int VertexColorCount;
-    public Color4f VertexColorMin;
-    public Color4f VertexColorMax;
+    public float[] VertexColorMin;
+    public float[] VertexColorMax;
 
     public int VertexAttributePosition;
     public int NormalAttributePosition;

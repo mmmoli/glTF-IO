@@ -179,15 +179,15 @@ namespace glTF_BinExporter
 
     private int GetVertexAccessor(MeshVertexList vertices)
     {
-      int? vertexBufferViewIdx = GetVertexBufferView(vertices, out Point3d min, out Point3d max, out int countVertices);
+      int? vertexBufferViewIdx = GetVertexBufferView(vertices, out var min, out var max, out int countVertices);
 
       glTFLoader.Schema.Accessor vertexAccessor = new glTFLoader.Schema.Accessor()
       {
         BufferView = vertexBufferViewIdx,
         ComponentType = glTFLoader.Schema.Accessor.ComponentTypeEnum.FLOAT,
         Count = countVertices,
-        Min = min.ToFloatArray(),
-        Max = max.ToFloatArray(),
+        Min = min,
+        Max = max,
         Type = glTFLoader.Schema.Accessor.TypeEnum.VEC3,
         ByteOffset = 0,
       };
@@ -195,7 +195,7 @@ namespace glTF_BinExporter
       return dummy.Accessors.AddAndReturnIndex(vertexAccessor);
     }
 
-    private int? GetVertexBufferView(MeshVertexList vertices, out Point3d min, out Point3d max, out int countVertices)
+    private int? GetVertexBufferView(MeshVertexList vertices, out float[] min, out float[] max, out int countVertices)
     {
       if (options.UseDracoCompression)
       {
@@ -235,7 +235,7 @@ namespace glTF_BinExporter
       return dummy.BufferViews.AddAndReturnIndex(vertexBufferView);
     }
 
-    private int GetVertexBuffer(MeshVertexList vertices, out Point3d min, out Point3d max, out int length)
+    private int GetVertexBuffer(MeshVertexList vertices, out float[] min, out float[] max, out int length)
     {
       byte[] bytes = GetVertexBytes(vertices, out min, out max);
 
@@ -250,20 +250,32 @@ namespace glTF_BinExporter
       return dummy.Buffers.AddAndReturnIndex(buffer);
     }
 
-    private byte[] GetVertexBytes(MeshVertexList vertices, out Point3d min, out Point3d max)
+    void GetBounds(float[] floats, int dimensions, out float[] min, out float[] max)
     {
-      min = new Point3d(Double.PositiveInfinity, Double.PositiveInfinity, Double.PositiveInfinity);
-      max = new Point3d(Double.NegativeInfinity, Double.NegativeInfinity, Double.NegativeInfinity);
+      min = new float[dimensions];
+      max = new float[dimensions];
 
-      // TODO: Add bbox for draco compression
-      //  min.X = Math.Min(min.X, vertex.X);
-      //  max.X = Math.Max(max.X, vertex.X);
-      //  min.Y = Math.Min(min.Y, vertex.Y);
-      //  max.Y = Math.Max(max.Y, vertex.Y);
-      //  min.Z = Math.Min(min.Z, vertex.Z);
-      //  max.Z = Math.Max(max.Z, vertex.Z);
+      for (int i = 0; i < dimensions; i++)
+      {
+        min[i] = float.MaxValue;
+        max[i] = float.MinValue;
+      }
 
+      for (int i = 0; i < floats.Length; i += dimensions)
+      {
+        for (int j = 0; j < dimensions; j++)
+        {
+          float value = floats[i + j];
+          min[j] = Math.Min(min[j], value);
+          max[j] = Math.Max(max[j], value);
+        }
+      }
+    }
+
+    private byte[] GetVertexBytes(MeshVertexList vertices, out float[] min, out float[] max)
+    {
       var floats = vertices.ToFloatArray();
+
       var scale = (float)RhinoMath.MetersPerUnit(exportData.Object.Document.ModelUnitSystem);
 
       for (int i = 0; i < floats.Length; i += 3)
@@ -272,6 +284,7 @@ namespace glTF_BinExporter
         (floats[i + 1], floats[i + 2]) = (floats[i + 2] * scale, -floats[i + 1] * scale);
       }
 
+      GetBounds(floats, 3, out min, out max);
       var bytes = new byte[floats.Length * 4];
       Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
       return bytes;
@@ -364,7 +377,7 @@ namespace glTF_BinExporter
 
     private int GetNormalsAccessor(MeshVertexNormalList normals)
     {
-      int? normalsBufferIdx = GetNormalsBufferView(normals, out Vector3f min, out Vector3f max, out int normalsCount);
+      int? normalsBufferIdx = GetNormalsBufferView(normals, out float[] min, out float[] max, out int normalsCount);
 
       glTFLoader.Schema.Accessor normalAccessor = new glTFLoader.Schema.Accessor()
       {
@@ -372,15 +385,15 @@ namespace glTF_BinExporter
         ByteOffset = 0,
         ComponentType = glTFLoader.Schema.Accessor.ComponentTypeEnum.FLOAT,
         Count = normalsCount,
-        Min = min.ToFloatArray(),
-        Max = max.ToFloatArray(),
+        Min = min,
+        Max = max,
         Type = glTFLoader.Schema.Accessor.TypeEnum.VEC3,
       };
 
       return dummy.Accessors.AddAndReturnIndex(normalAccessor);
     }
 
-    int? GetNormalsBufferView(MeshVertexNormalList normals, out Vector3f min, out Vector3f max, out int normalsCount)
+    int? GetNormalsBufferView(MeshVertexNormalList normals, out float[] min, out float[] max, out int normalsCount)
     {
       if (options.UseDracoCompression)
       {
@@ -419,7 +432,7 @@ namespace glTF_BinExporter
       return dummy.BufferViews.AddAndReturnIndex(normalsBufferView);
     }
 
-    int GetNormalsBuffer(MeshVertexNormalList normals, out Vector3f min, out Vector3f max, out int byteLength)
+    int GetNormalsBuffer(MeshVertexNormalList normals, out float[] min, out float[] max, out int byteLength)
     {
       byte[] bytes = GetNormalsBytes(normals, out min, out max);
 
@@ -434,19 +447,8 @@ namespace glTF_BinExporter
       return dummy.Buffers.AddAndReturnIndex(normalBuffer);
     }
 
-    byte[] GetNormalsBytes(MeshVertexNormalList normals, out Vector3f min, out Vector3f max)
+    byte[] GetNormalsBytes(MeshVertexNormalList normals, out float[] min, out float[] max)
     {
-      min = new Vector3f(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
-      max = new Vector3f(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
-
-      //TODO: Add bbox for draco compression
-      //  min.X = Math.Min(min.X, normal.X);
-      //  max.X = Math.Max(max.X, normal.X);
-      //  min.Y = Math.Min(min.Y, normal.Y);
-      //  max.Y = Math.Max(max.Y, normal.Y);
-      //  max.Z = Math.Max(max.Z, normal.Z);
-      //  min.Z = Math.Min(min.Z, normal.Z);
-
       var floats = normals.ToFloatArray();
 
       for (int i = 0; i < floats.Length; i += 3)
@@ -454,6 +456,7 @@ namespace glTF_BinExporter
         (floats[i + 1], floats[i + 2]) = (floats[i + 2], -floats[i + 1]);
       }
 
+      GetBounds(floats, 3, out min, out max);
       var bytes = new byte[floats.Length * 4];
       Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
       return bytes;
@@ -461,7 +464,7 @@ namespace glTF_BinExporter
 
     int GetTextureCoordinatesAccessor(MeshTextureCoordinateList textureCoordinates)
     {
-      int? textureCoordinatesBufferViewIdx = GetTextureCoordinatesBufferView(textureCoordinates, out Point2f min, out Point2f max, out int countCoordinates);
+      int? textureCoordinatesBufferViewIdx = GetTextureCoordinatesBufferView(textureCoordinates, out float[] min, out float[] max, out int countCoordinates);
 
       glTFLoader.Schema.Accessor textureCoordinatesAccessor = new glTFLoader.Schema.Accessor()
       {
@@ -469,15 +472,15 @@ namespace glTF_BinExporter
         ByteOffset = 0,
         ComponentType = glTFLoader.Schema.Accessor.ComponentTypeEnum.FLOAT,
         Count = countCoordinates,
-        Min = min.ToFloatArray(),
-        Max = max.ToFloatArray(),
+        Min = min,
+        Max = max,
         Type = glTFLoader.Schema.Accessor.TypeEnum.VEC2,
       };
 
       return dummy.Accessors.AddAndReturnIndex(textureCoordinatesAccessor);
     }
 
-    int? GetTextureCoordinatesBufferView(MeshTextureCoordinateList textureCoordinates, out Point2f min, out Point2f max, out int countCoordinates)
+    int? GetTextureCoordinatesBufferView(MeshTextureCoordinateList textureCoordinates, out float[] min, out float[] max, out int countCoordinates)
     {
       if (options.UseDracoCompression)
       {
@@ -516,7 +519,7 @@ namespace glTF_BinExporter
       return dummy.BufferViews.AddAndReturnIndex(textureCoordinatesBufferView);
     }
 
-    int GetTextureCoordinatesBuffer(MeshTextureCoordinateList textureCoordinates, out Point2f min, out Point2f max, out int byteLength)
+    int GetTextureCoordinatesBuffer(MeshTextureCoordinateList textureCoordinates, out float[] min, out float[] max, out int byteLength)
     {
       byte[] bytes = GetTextureCoordinatesBytes(textureCoordinates, out min, out max);
 
@@ -531,19 +534,11 @@ namespace glTF_BinExporter
       return dummy.Buffers.AddAndReturnIndex(textureCoordinatesBuffer);
     }
 
-    private byte[] GetTextureCoordinatesBytes(MeshTextureCoordinateList textureCoordinates, out Point2f min, out Point2f max)
+    private byte[] GetTextureCoordinatesBytes(MeshTextureCoordinateList textureCoordinates, out float[] min, out float[] max)
     {
-      min = new Point2f(float.PositiveInfinity, float.PositiveInfinity);
-      max = new Point2f(float.NegativeInfinity, float.NegativeInfinity);
-
-      //TODO: Add bbox for draco compression
-      //  min.X = Math.Min(min.X, coordinate.X);
-      //  max.X = Math.Max(max.X, coordinate.X);
-      //  min.Y = Math.Min(min.Y, coordinate.Y);
-      //  max.Y = Math.Max(max.Y, coordinate.Y);
-
       var floats = textureCoordinates.ToFloatArray();
 
+      GetBounds(floats, 2, out min, out max);
       var bytes = new byte[floats.Length * 4];
       Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
       return bytes;
@@ -551,7 +546,7 @@ namespace glTF_BinExporter
 
     private int GetVertexColorAccessor(MeshVertexColorList vertexColors)
     {
-      int? vertexColorsBufferViewIdx = GetVertexColorBufferView(vertexColors, out Color4f min, out Color4f max, out int countVertexColors);
+      int? vertexColorsBufferViewIdx = GetVertexColorBufferView(vertexColors, out float[] min, out float[] max, out int countVertexColors);
 
       var type = options.UseDracoCompression ? glTFLoader.Schema.Accessor.ComponentTypeEnum.UNSIGNED_BYTE : glTFLoader.Schema.Accessor.ComponentTypeEnum.FLOAT;
 
@@ -561,8 +556,8 @@ namespace glTF_BinExporter
         ByteOffset = 0,
         Count = countVertexColors,
         ComponentType = type,
-        Min = min.ToFloatArray(),
-        Max = max.ToFloatArray(),
+        Min = min,
+        Max = max,
         Type = glTFLoader.Schema.Accessor.TypeEnum.VEC4,
         Normalized = options.UseDracoCompression,
       };
@@ -570,7 +565,7 @@ namespace glTF_BinExporter
       return dummy.Accessors.AddAndReturnIndex(vertexColorAccessor);
     }
 
-    int? GetVertexColorBufferView(MeshVertexColorList vertexColors, out Color4f min, out Color4f max, out int countVertexColors)
+    int? GetVertexColorBufferView(MeshVertexColorList vertexColors, out float[] min, out float[] max, out int countVertexColors)
     {
       if (options.UseDracoCompression)
       {
@@ -609,7 +604,7 @@ namespace glTF_BinExporter
       return dummy.BufferViews.AddAndReturnIndex(vertexColorsBufferView);
     }
 
-    int GetVertexColorBuffer(MeshVertexColorList vertexColors, out Color4f min, out Color4f max, out int byteLength)
+    int GetVertexColorBuffer(MeshVertexColorList vertexColors, out float[] min, out float[] max, out int byteLength)
     {
       byte[] bytes = GetVertexColorBytes(vertexColors, out min, out max);
 
@@ -624,24 +619,18 @@ namespace glTF_BinExporter
       return dummy.Buffers.AddAndReturnIndex(vertexColorsBuffer);
     }
 
-    byte[] GetVertexColorBytes(MeshVertexColorList vertexColors, out Color4f min, out Color4f max)
+    byte[] GetVertexColorBytes(MeshVertexColorList vertexColors, out float[] min, out float[] max)
     {
-      min = default;
-      max = default;
+      var ints = vertexColors.ToARGBArray();
+      var floats = new float[ints.Length];
 
-      //TODO: Add bbox for draco compression
-      //  minArr[0] = Math.Min(minArr[0], color.R);
-      //  minArr[1] = Math.Min(minArr[1], color.G);
-      //  minArr[2] = Math.Min(minArr[2], color.B);
-      //  minArr[3] = Math.Min(minArr[3], color.A);
-
-      //  maxArr[0] = Math.Max(maxArr[0], color.R);
-      //  maxArr[1] = Math.Max(maxArr[1], color.G);
-      //  maxArr[2] = Math.Max(maxArr[2], color.B);
-      //  maxArr[3] = Math.Max(maxArr[3], color.A);
-
-      var floats = vertexColors.ToARGBArray();
       //TODO:(maybe?) reorder ARGB to RGBA
+      for (int i = 0; i < ints.Length; i++)
+      {
+        floats[i] = ints[i] / 255.0f;
+      }
+
+      GetBounds(floats, 4, out min, out max);
       var bytes = new byte[floats.Length * 4];
       Buffer.BlockCopy(floats, 0, bytes, 0, bytes.Length);
       return bytes;
@@ -684,8 +673,8 @@ namespace glTF_BinExporter
 
           // Vertices Stats
           dracoGeoInfo.VerticesCount = mesh.Vertices.Count;
-          dracoGeoInfo.VerticesMin = new Point3d(mesh.Vertices.Min());
-          dracoGeoInfo.VerticesMax = new Point3d(mesh.Vertices.Max());
+          dracoGeoInfo.VerticesMin = new Point3d(mesh.Vertices.Min()).ToFloatArray();
+          dracoGeoInfo.VerticesMax = new Point3d(mesh.Vertices.Max()).ToFloatArray();
 
           dracoGeoInfo.IndicesCount = mesh.Faces.TriangleCount;
           dracoGeoInfo.IndicesMin = 0;
@@ -694,21 +683,21 @@ namespace glTF_BinExporter
           dracoGeoInfo.NormalsCount = mesh.Normals.Count;
           if (dracoGeoInfo.NormalsCount > 0)
           {
-            dracoGeoInfo.NormalsMin = mesh.Normals.Min();
-            dracoGeoInfo.NormalsMax = mesh.Normals.Max();
+            dracoGeoInfo.NormalsMin = mesh.Normals.Min().ToFloatArray();
+            dracoGeoInfo.NormalsMax = mesh.Normals.Max().ToFloatArray();
           }
 
           // TexCoord Stats
           dracoGeoInfo.TexCoordsCount = mesh.TextureCoordinates.Count;
           if (dracoGeoInfo.TexCoordsCount > 0)
           {
-            dracoGeoInfo.TexCoordsMin = mesh.TextureCoordinates.Min();
-            dracoGeoInfo.TexCoordsMax = mesh.TextureCoordinates.Max();
+            dracoGeoInfo.TexCoordsMin = mesh.TextureCoordinates.Min().ToFloatArray();
+            dracoGeoInfo.TexCoordsMax = mesh.TextureCoordinates.Max().ToFloatArray();
           }
 
           dracoGeoInfo.VertexColorCount = mesh.VertexColors.Count;
-          dracoGeoInfo.VertexColorMin = Color4f.Black;
-          dracoGeoInfo.VertexColorMax = Color4f.White;
+          dracoGeoInfo.VertexColorMin = new float[4] { 0, 0, 0, 0 };
+          dracoGeoInfo.VertexColorMax = new float[4] { 1, 1, 1, 1 };
 
           dracoGeoInfo.Success = true;
         }
