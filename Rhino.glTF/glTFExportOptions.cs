@@ -1,4 +1,4 @@
-﻿
+
 namespace glTF_BinExporter;
 
 public enum SubDMode : int
@@ -16,11 +16,11 @@ public class glTFExportOptions
     public SubDMode SubDExportMode { get; set; } = SubDMode.Surface;
     public int SubDLevel { get; set; } = 4;
 
+    public bool ExportTextures { get; set; } = true;
     public bool ExportTextureCoordinates { get; set; } = true;
     public bool ExportVertexNormals { get; set; } = true;
     public bool ExportOpenMeshes { get; set; } = true;
     public bool ExportVertexColors { get; set; } = false;
-
     public bool UseDracoCompression { get; set; } = false;
     public int DracoCompressionLevel { get; set; } = 10;
     public int DracoQuantizationBitsPosition { get; set; } = 11;

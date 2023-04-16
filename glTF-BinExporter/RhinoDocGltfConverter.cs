@@ -256,7 +256,7 @@ namespace glTF_BinExporter
       if (!materialsMap.TryGetValue(materialId, out int materialIndex))
       {
         RhinoMaterialGltfConverter materialConverter = new RhinoMaterialGltfConverter(options, binary, dummy, binaryBuffer, material, workflow);
-        materialIndex = materialConverter.AddMaterial();
+        materialIndex = materialConverter.AddMaterial(this.options.ExportTextures);
         materialsMap.Add(materialId, materialIndex);
       }
 

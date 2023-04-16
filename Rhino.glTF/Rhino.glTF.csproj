@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <PackageId>Rhino.glTF</PackageId>
-    <Version>1.3.2</Version>
+    <Version>1.4.0</Version>
     <Authors>Aske Doerge;Joshua Kennedy;Peter Krattenmacher;Ali Tehami</Authors>
     <Description>Export glTF and glb from Rhino</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

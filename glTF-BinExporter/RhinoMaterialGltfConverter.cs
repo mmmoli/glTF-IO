@@ -1,4 +1,4 @@
-﻿using Rhino.Display;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 using Rhino.Render;
@@ -42,7 +42,7 @@ namespace glTF_BinExporter
         private Rhino.DocObjects.Material rhinoMaterial = null;
         private RenderMaterial renderMaterial = null;
 
-        public int AddMaterial()
+        public int AddMaterial(bool exportTextures)
         {
             // Prep
             glTFLoader.Schema.Material material = new glTFLoader.Schema.Material()
@@ -60,25 +60,39 @@ namespace glTF_BinExporter
             Rhino.DocObjects.PhysicallyBasedMaterial pbr = rhinoMaterial.PhysicallyBased;
 
             // Textures
-            Rhino.DocObjects.Texture metallicTexture = pbr.GetTexture(TextureType.PBR_Metallic);
-            Rhino.DocObjects.Texture roughnessTexture = pbr.GetTexture(TextureType.PBR_Roughness);
-            Rhino.DocObjects.Texture normalTexture = pbr.GetTexture(TextureType.Bump);
-            Rhino.DocObjects.Texture occlusionTexture = pbr.GetTexture(TextureType.PBR_AmbientOcclusion);
-            Rhino.DocObjects.Texture emissiveTexture = pbr.GetTexture(TextureType.PBR_Emission);
-            Rhino.DocObjects.Texture opacityTexture = pbr.GetTexture(TextureType.Opacity);
-            Rhino.DocObjects.Texture clearcoatTexture = pbr.GetTexture(TextureType.PBR_Clearcoat);
-            Rhino.DocObjects.Texture clearcoatRoughessTexture = pbr.GetTexture(TextureType.PBR_ClearcoatRoughness);
-            Rhino.DocObjects.Texture clearcoatNormalTexture = pbr.GetTexture(TextureType.PBR_ClearcoatBump);
-            Rhino.DocObjects.Texture specularTexture = pbr.GetTexture(TextureType.PBR_Specular);
+            Rhino.DocObjects.Texture metallicTexture = null;
+            Rhino.DocObjects.Texture roughnessTexture = null;
+            Rhino.DocObjects.Texture normalTexture = null;
+            Rhino.DocObjects.Texture occlusionTexture = null;
+            Rhino.DocObjects.Texture emissiveTexture = null;
+            Rhino.DocObjects.Texture opacityTexture = null;
+            Rhino.DocObjects.Texture clearcoatTexture = null;
+            Rhino.DocObjects.Texture clearcoatRoughessTexture = null;
+            Rhino.DocObjects.Texture clearcoatNormalTexture = null;
+            Rhino.DocObjects.Texture specularTexture = null;
 
-            HandleBaseColor(rhinoMaterial, material);
+            if(exportTextures)
+            {
+              metallicTexture = pbr.GetTexture(TextureType.PBR_Metallic);
+              roughnessTexture = pbr.GetTexture(TextureType.PBR_Roughness);
+              normalTexture = pbr.GetTexture(TextureType.Bump);
+              occlusionTexture = pbr.GetTexture(TextureType.PBR_AmbientOcclusion);
+              emissiveTexture = pbr.GetTexture(TextureType.PBR_Emission);
+              opacityTexture = pbr.GetTexture(TextureType.Opacity);
+              clearcoatTexture = pbr.GetTexture(TextureType.PBR_Clearcoat);
+              clearcoatRoughessTexture = pbr.GetTexture(TextureType.PBR_ClearcoatRoughness);
+              clearcoatNormalTexture = pbr.GetTexture(TextureType.PBR_ClearcoatBump);
+              specularTexture = pbr.GetTexture(TextureType.PBR_Specular);
+            }
+
+            HandleBaseColor(rhinoMaterial, material, exportTextures);
 
             bool hasMetalTexture = metallicTexture == null ? false : metallicTexture.Enabled;
             bool hasRoughnessTexture = roughnessTexture == null ? false : roughnessTexture.Enabled;
 
             if (hasMetalTexture || hasRoughnessTexture)
             {
-                material.PbrMetallicRoughness.MetallicRoughnessTexture = AddMetallicRoughnessTexture(rhinoMaterial);
+                material.PbrMetallicRoughness.MetallicRoughnessTexture = AddMetallicRoughnessTexture(rhinoMaterial, exportTextures);
 
                 float metallic = metallicTexture == null ? (float)pbr.Metallic : GetTextureWeight(metallicTexture);
                 float roughness = roughnessTexture == null ? (float)pbr.Roughness : GetTextureWeight(roughnessTexture);
@@ -273,13 +287,20 @@ namespace glTF_BinExporter
             return Color.FromArgb(i, i, i, i);
         }
 
-        void HandleBaseColor(Rhino.DocObjects.Material rhinoMaterial, glTFLoader.Schema.Material gltfMaterial)
+        void HandleBaseColor(Rhino.DocObjects.Material rhinoMaterial, glTFLoader.Schema.Material gltfMaterial, bool exportTextures)
         {
-            Rhino.DocObjects.Texture baseColorDoc = rhinoMaterial.GetTexture(TextureType.PBR_BaseColor);
-            Rhino.DocObjects.Texture alphaTextureDoc = rhinoMaterial.GetTexture(TextureType.PBR_Alpha);
+            Rhino.DocObjects.Texture baseColorDoc = null;
+            Rhino.DocObjects.Texture alphaTextureDoc = null;
+            RenderTexture baseColorTexture = null;
+            RenderTexture alphaTexture = null;
 
-            RenderTexture baseColorTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrBaseColor);
-            RenderTexture alphaTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrAlpha);
+            if(exportTextures)
+            {
+              baseColorDoc = rhinoMaterial.GetTexture(TextureType.PBR_BaseColor);
+              alphaTextureDoc = rhinoMaterial.GetTexture(TextureType.PBR_Alpha);
+              baseColorTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrBaseColor);
+              alphaTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrAlpha);
+            }
 
             bool baseColorLinear = baseColorTexture == null ? false : IsLinear(baseColorTexture);
 
@@ -572,10 +593,16 @@ namespace glTF_BinExporter
             };
         }
 
-        public glTFLoader.Schema.TextureInfo AddMetallicRoughnessTexture(Rhino.DocObjects.Material rhinoMaterial)
+        public glTFLoader.Schema.TextureInfo AddMetallicRoughnessTexture(Rhino.DocObjects.Material rhinoMaterial, bool exportTextures)
         {
-            Rhino.DocObjects.Texture metalTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Metallic);
-            Rhino.DocObjects.Texture roughnessTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Roughness);
+            Rhino.DocObjects.Texture metalTexture = null;
+            Rhino.DocObjects.Texture roughnessTexture = null;
+
+            if(exportTextures)
+            {
+              metalTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Metallic);
+              roughnessTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Roughness);
+            }
 
             bool hasMetalTexture = metalTexture == null ? false : metalTexture.Enabled;
             bool hasRoughnessTexture = roughnessTexture == null ? false : roughnessTexture.Enabled;
