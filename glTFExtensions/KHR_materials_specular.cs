@@ -1,46 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using G = glTFLoader.Schema;
 
-namespace glTFExtensions
+namespace glTFExtensions;
+
+public class KHR_materials_specular
 {
-    public class KHR_materials_specular
+    public const string Tag = "KHR_materials_specular";
+
+    [JsonProperty("specularFactor")]
+    public float SpecularFactor = 1.0f;
+
+    [JsonProperty("specularTexture")]
+    public G.TextureInfo? SpecularTexture;
+
+    [JsonProperty("specularColorFactor")]
+    public float[] SpecularColorFactor = new float[3]
     {
-        public const string Tag = "KHR_materials_specular";
+        1.0f,
+        1.0f,
+        1.0f,
+    };
 
-        [Newtonsoft.Json.JsonPropertyAttribute("specularFactor")]
-        public float SpecularFactor = 1.0f;
+    [JsonProperty("specularColorTexture")]
+    public G.TextureInfo? SpecularColorTexture;
 
-        [Newtonsoft.Json.JsonPropertyAttribute("specularTexture")]
-        public glTFLoader.Schema.TextureInfo SpecularTexture = null;
-
-        [Newtonsoft.Json.JsonPropertyAttribute("specularColorFactor")]
-        public float[] SpecularColorFactor = new float[3]
-        {
-            1.0f,
-            1.0f,
-            1.0f,
-        };
-
-        [Newtonsoft.Json.JsonPropertyAttribute("specularColorTexture")]
-        public glTFLoader.Schema.TextureInfo SpecularColorTexture = null;
-
-        public bool ShouldSerializeSpecularTexture()
-        {
-            return SpecularTexture != null;
-        }
-
-        public bool ShouldSerializeSpecularColorFactor()
-        {
-            return SpecularColorFactor != null;
-        }
-
-        public bool ShouldSerializeSpecularColorTexture()
-        {
-            return SpecularColorTexture != null;
-        }
-
+    public bool ShouldSerializeSpecularTexture()
+    {
+        return SpecularTexture is not null;
     }
+
+    public bool ShouldSerializeSpecularColorFactor()
+    {
+        return SpecularColorFactor is not null;
+    }
+
+    public bool ShouldSerializeSpecularColorTexture()
+    {
+        return SpecularColorTexture is not null;
+    }
+
 }

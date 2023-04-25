@@ -1,49 +1,48 @@
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 
-namespace glTF_BinExporter
+namespace RhinoGltf;
+
+public static class Constants
 {
-  public static class Constants
-  {
-    public static readonly Transform ZtoYUp = new Transform()
+    public static readonly Transform ZtoYUp = new()
     {
-      M00 = 1,
-      M01 = 0,
-      M02 = 0,
-      M03 = 0,
+        M00 = 1,
+        M01 = 0,
+        M02 = 0,
+        M03 = 0,
 
-      M10 = 0,
-      M11 = 0,
-      M12 = 1,
-      M13 = 0,
+        M10 = 0,
+        M11 = 0,
+        M12 = 1,
+        M13 = 0,
 
-      M20 = 0,
-      M21 = -1,
-      M22 = 0,
-      M23 = 0,
+        M20 = 0,
+        M21 = -1,
+        M22 = 0,
+        M23 = 0,
 
-      M30 = 0,
-      M31 = 0,
-      M32 = 0,
-      M33 = 1,
+        M30 = 0,
+        M31 = 0,
+        M32 = 0,
+        M33 = 1,
     };
 
-    public static readonly ObjectType[] ValidObjectTypes = new ObjectType[] {
-            ObjectType.Brep,
-            ObjectType.InstanceReference,
-            ObjectType.Mesh,
-            ObjectType.Extrusion,
-            ObjectType.Surface,
-            ObjectType.SubD
-        };
+    public static readonly ObjectType[] ValidObjectTypes = new[] {
+        ObjectType.Brep,
+        ObjectType.InstanceReference,
+        ObjectType.Mesh,
+        ObjectType.Extrusion,
+        ObjectType.Surface,
+        ObjectType.SubD
+    };
 
     public static readonly byte[][] Paddings = new byte[][]
     {
-            new byte[] { },
-            new byte[] { 0, 0, 0 },
-            new byte[] { 0, 0 },
-            new byte[] { 0 },
+        Array.Empty<byte>(),
+        new byte[] { 0, 0, 0 },
+        new byte[] { 0, 0 },
+        new byte[] { 0 },
     };
 
     public const string TextBufferHeader = "data:application/octet-stream;base64,";
@@ -51,10 +50,10 @@ namespace glTF_BinExporter
     public const string NormalAttributeTag = "NORMAL";
     public const string TexCoord0AttributeTag = "TEXCOORD_0";
     public const string VertexColorAttributeTag = "COLOR_0";
-  }
+}
 
-  public class DracoGeometryInfo
-  {
+public class DracoGeometryInfo
+{
     public bool Success;
 
     public int BufferIndex;
@@ -64,28 +63,27 @@ namespace glTF_BinExporter
     public int BufferViewIndex;
 
     public int VerticesCount;
-    public float[] VerticesMin;
-    public float[] VerticesMax;
+    public float[]? VerticesMin;
+    public float[]? VerticesMax;
 
     public int IndicesCount;
     public float IndicesMin;
     public float IndicesMax;
 
     public int NormalsCount;
-    public float[] NormalsMin;
-    public float[] NormalsMax;
+    public float[]? NormalsMin;
+    public float[]? NormalsMax;
 
     public int TexCoordsCount;
-    public float[] TexCoordsMin;
-    public float[] TexCoordsMax;
+    public float[]? TexCoordsMin;
+    public float[]? TexCoordsMax;
 
     public int VertexColorCount;
-    public float[] VertexColorMin;
-    public float[] VertexColorMax;
+    public float[]? VertexColorMin;
+    public float[]? VertexColorMax;
 
     public int VertexAttributePosition;
     public int NormalAttributePosition;
     public int TextureCoordinatesAttributePosition;
     public int VertexColorAttributePosition;
-  }
 }

@@ -1,29 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using G = glTFLoader.Schema;
 
-namespace glTFExtensions
+namespace glTFExtensions;
+
+public class KHR_materials_transmission
 {
-    public class KHR_materials_transmission
+    public const string Tag = "KHR_materials_transmission";
+
+    [JsonProperty("transmissionFactor")]
+    public float TransmissionFactor = 0.0f;
+
+    [JsonProperty("transmissionTexture")]
+    public G.TextureInfo? TransmissionTexture;
+
+    public bool ShouldSerializeTransmissionFactor()
     {
-        public const string Tag = "KHR_materials_transmission";
+        return TransmissionFactor != 0.0f;
+    }
 
-        [Newtonsoft.Json.JsonPropertyAttribute("transmissionFactor")]
-        public float TransmissionFactor = 0.0f;
-
-        [Newtonsoft.Json.JsonPropertyAttribute("transmissionTexture")]
-        public glTFLoader.Schema.TextureInfo TransmissionTexture = null;
-
-        public bool ShouldSerializeTransmissionFactor()
-        {
-            return TransmissionFactor != 0.0f;
-        }
-
-        public bool ShouldSerializeTransmissionTexture()
-        {
-            return TransmissionTexture != null;
-        }
+    public bool ShouldSerializeTransmissionTexture()
+    {
+        return TransmissionTexture is not null;
     }
 }

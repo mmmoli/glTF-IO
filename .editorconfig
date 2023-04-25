@@ -7,3 +7,16 @@ indent_style = space
 indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
+
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_namespace_declarations = file_scoped
+csharp_prefer_braces = when_multiline:warning
+dotnet_diagnostic.CA1725.severity = suggestion
+dotnet_diagnostic.CA1805.severity = suggestion
+dotnet_diagnostic.CA1823.severity = warning

@@ -1,793 +1,700 @@
+using System.Drawing;
+using System.Drawing.Imaging;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 using Rhino.Render;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using G = glTFLoader.Schema;
 
-namespace glTF_BinExporter
+namespace RhinoGltf;
+
+enum RgbaChannel
 {
-    enum RgbaChannel
+    Red = 0,
+    Green = 1,
+    Blue = 2,
+    Alpha = 3,
+}
+
+class RhinoMaterialGltfConverter
+{
+    readonly bool _binary;
+    readonly GltfSchemaDummy _dummy;
+    readonly List<byte> _binaryBuffer;
+    readonly LinearWorkflow _workflow;
+    readonly Material _rhinoMaterial;
+    readonly RenderMaterial _renderMaterial;
+
+    public RhinoMaterialGltfConverter(bool binary, GltfSchemaDummy dummy, List<byte> binaryBuffer, RenderMaterial renderMaterial, LinearWorkflow workflow)
     {
-        Red = 0,
-        Green = 1,
-        Blue = 2,
-        Alpha = 3,
+        _binary = binary;
+        _dummy = dummy;
+        _binaryBuffer = binaryBuffer;
+        _rhinoMaterial = renderMaterial.SimulatedMaterial(RenderTexture.TextureGeneration.Allow);
+        _renderMaterial = renderMaterial;
+        _workflow = workflow;
     }
 
-    class RhinoMaterialGltfConverter
+    public int AddMaterial(bool exportTextures)
     {
-        public RhinoMaterialGltfConverter(glTFExportOptions options, bool binary, gltfSchemaDummy dummy, List<byte> binaryBuffer, RenderMaterial renderMaterial, LinearWorkflow workflow)
+        // Prep
+        G.Material material = new()
         {
-            this.options = options;
-            this.binary = binary;
-            this.dummy = dummy;
-            this.binaryBuffer = binaryBuffer;
-            this.rhinoMaterial = renderMaterial.SimulatedMaterial(RenderTexture.TextureGeneration.Allow);
-            this.renderMaterial = renderMaterial;
-            this.workflow = workflow;
+            Name = _renderMaterial.Name,
+            PbrMetallicRoughness = new(),
+            DoubleSided = true
+        };
+
+        if (!_rhinoMaterial.IsPhysicallyBased)
+            _rhinoMaterial.ToPhysicallyBased();
+
+        Rhino.DocObjects.PhysicallyBasedMaterial pbr = _rhinoMaterial.PhysicallyBased;
+
+        // Textures
+        Texture? metallicTexture = null;
+        Texture? roughnessTexture = null;
+        Texture? normalTexture = null;
+        Texture? occlusionTexture = null;
+        Texture? emissiveTexture = null;
+        Texture? opacityTexture = null;
+        Texture? clearcoatTexture = null;
+        Texture? clearcoatRoughessTexture = null;
+        Texture? clearcoatNormalTexture = null;
+        Texture? specularTexture = null;
+
+        if (exportTextures)
+        {
+            metallicTexture = pbr.GetTexture(TextureType.PBR_Metallic);
+            roughnessTexture = pbr.GetTexture(TextureType.PBR_Roughness);
+            normalTexture = pbr.GetTexture(TextureType.Bump);
+            occlusionTexture = pbr.GetTexture(TextureType.PBR_AmbientOcclusion);
+            emissiveTexture = pbr.GetTexture(TextureType.PBR_Emission);
+            opacityTexture = pbr.GetTexture(TextureType.Opacity);
+            clearcoatTexture = pbr.GetTexture(TextureType.PBR_Clearcoat);
+            clearcoatRoughessTexture = pbr.GetTexture(TextureType.PBR_ClearcoatRoughness);
+            clearcoatNormalTexture = pbr.GetTexture(TextureType.PBR_ClearcoatBump);
+            specularTexture = pbr.GetTexture(TextureType.PBR_Specular);
         }
 
-        private glTFExportOptions options = null;
-        private bool binary = false;
-        private gltfSchemaDummy dummy = null;
-        private List<byte> binaryBuffer = null;
-        private LinearWorkflow workflow = null;
+        HandleBaseColor(_rhinoMaterial, material, exportTextures);
 
-        private Rhino.DocObjects.Material rhinoMaterial = null;
-        private RenderMaterial renderMaterial = null;
+        bool hasMetalTexture = metallicTexture is not null && metallicTexture.Enabled;
+        bool hasRoughnessTexture = roughnessTexture is not null && roughnessTexture.Enabled;
 
-        public int AddMaterial(bool exportTextures)
+        if (hasMetalTexture || hasRoughnessTexture)
         {
-            // Prep
-            glTFLoader.Schema.Material material = new glTFLoader.Schema.Material()
+            material.PbrMetallicRoughness.MetallicRoughnessTexture = AddMetallicRoughnessTexture(_rhinoMaterial, exportTextures);
+
+            float metallic = metallicTexture is null ? (float)pbr.Metallic : GetTextureWeight(metallicTexture);
+            float roughness = roughnessTexture is null ? (float)pbr.Roughness : GetTextureWeight(roughnessTexture);
+
+            material.PbrMetallicRoughness.MetallicFactor = metallic;
+            material.PbrMetallicRoughness.RoughnessFactor = roughness;
+        }
+        else
+        {
+            material.PbrMetallicRoughness.MetallicFactor = (float)pbr.Metallic;
+            material.PbrMetallicRoughness.RoughnessFactor = (float)pbr.Roughness;
+        }
+
+        if (normalTexture is not null && normalTexture.Enabled)
+            material.NormalTexture = AddTextureNormal(normalTexture);
+
+        if (occlusionTexture is not null && occlusionTexture.Enabled)
+            material.OcclusionTexture = AddTextureOcclusion(occlusionTexture);
+
+        if (emissiveTexture is not null && emissiveTexture.Enabled)
+        {
+            material.EmissiveTexture = AddTexture(emissiveTexture.FileReference.FullPath);
+            float emissionMultiplier = 1.0f;
+            var param = _rhinoMaterial.RenderMaterial.GetParameter("emission-multiplier");
+
+            if (param is not null)
+                emissionMultiplier = (float)Convert.ToDouble(param);
+
+            material.EmissiveFactor = new float[]
             {
-                Name = renderMaterial.Name,
-                PbrMetallicRoughness = new glTFLoader.Schema.MaterialPbrMetallicRoughness(),
-                DoubleSided = true
+                emissionMultiplier,
+                emissionMultiplier,
+                emissionMultiplier,
+            };
+        }
+        else
+        {
+            material.EmissiveFactor = new float[]
+            {
+                _rhinoMaterial.PhysicallyBased.Emission.R,
+                _rhinoMaterial.PhysicallyBased.Emission.G,
+                _rhinoMaterial.PhysicallyBased.Emission.B,
+            };
+        }
+
+        //Extensions
+        material.Extensions = new Dictionary<string, object>();
+
+        //Opacity => Transmission https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_transmission/README.md
+
+        glTFExtensions.KHR_materials_transmission transmission = new();
+
+        if (opacityTexture != null && opacityTexture.Enabled)
+        {
+            //Transmission texture is stored in an images R channel
+            //https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_transmission/README.md#properties
+            transmission.TransmissionTexture = GetSingleChannelTexture(opacityTexture, RgbaChannel.Red, true);
+            transmission.TransmissionFactor = GetTextureWeight(opacityTexture);
+        }
+        else
+        {
+            transmission.TransmissionFactor = 1.0f - (float)pbr.Opacity;
+        }
+
+        material.Extensions.Add(glTFExtensions.KHR_materials_transmission.Tag, transmission);
+
+        //Clearcoat => Clearcoat https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
+
+        glTFExtensions.KHR_materials_clearcoat clearcoat = new();
+
+        if (clearcoatTexture is not null && clearcoatTexture.Enabled)
+        {
+            clearcoat.ClearcoatTexture = AddTexture(clearcoatTexture.FileReference.FullPath);
+            clearcoat.ClearcoatFactor = GetTextureWeight(clearcoatTexture);
+        }
+        else
+        {
+            clearcoat.ClearcoatFactor = (float)pbr.Clearcoat;
+        }
+
+        if (clearcoatRoughessTexture is not null && clearcoatRoughessTexture.Enabled)
+        {
+            clearcoat.ClearcoatRoughnessTexture = AddTexture(clearcoatRoughessTexture.FileReference.FullPath);
+            clearcoat.ClearcoatRoughnessFactor = GetTextureWeight(clearcoatRoughessTexture);
+        }
+        else
+        {
+            clearcoat.ClearcoatRoughnessFactor = (float)pbr.ClearcoatRoughness;
+        }
+
+        if (clearcoatNormalTexture is not null && clearcoatNormalTexture.Enabled)
+        {
+            clearcoat.ClearcoatNormalTexture = AddTextureNormal(clearcoatNormalTexture);
+        }
+
+        material.Extensions.Add(glTFExtensions.KHR_materials_clearcoat.Tag, clearcoat);
+
+        //Opacity IOR -> IOR https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_ior
+
+        glTFExtensions.KHR_materials_ior ior = new()
+        {
+            Ior = (float)pbr.OpacityIOR,
+        };
+
+        material.Extensions.Add(glTFExtensions.KHR_materials_ior.Tag, ior);
+
+        //Specular -> Specular https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_specular
+
+        glTFExtensions.KHR_materials_specular specular = new();
+
+        if (specularTexture != null && specularTexture.Enabled)
+        {
+            //Specular is stored in the textures alpha channel
+            specular.SpecularTexture = GetSingleChannelTexture(specularTexture, RgbaChannel.Alpha, false);
+            specular.SpecularFactor = GetTextureWeight(specularTexture);
+        }
+        else
+        {
+            specular.SpecularFactor = (float)pbr.Specular;
+        }
+
+        material.Extensions.Add(glTFExtensions.KHR_materials_specular.Tag, specular);
+        return _dummy.Materials.AddAndReturnIndex(material);
+    }
+
+    G.TextureInfo GetSingleChannelTexture(Texture texture, RgbaChannel channel, bool invert)
+    {
+        string path = texture.FileReference.FullPath;
+        Bitmap bmp = new(path);
+        Bitmap final = new(bmp.Width, bmp.Height);
+
+        for (int i = 0; i < bmp.Width; i++)
+        {
+            for (int j = 0; j < bmp.Height; j++)
+            {
+                Color4f color = new(bmp.GetPixel(i, j));
+                float value = color.L;
+
+                if (invert)
+                    value = 1.0f - value;
+
+                Color colorFinal = GetSingleChannelColor(value, channel);
+
+                final.SetPixel(i, j, colorFinal);
+            }
+        }
+
+        int textureIndex = GetTextureFromBitmap(final);
+        G.TextureInfo textureInfo = new()
+        {
+            Index = textureIndex,
+            TexCoord = 0,
+        };
+
+        return textureInfo;
+    }
+
+    private static Color GetSingleChannelColor(float value, RgbaChannel channel)
+    {
+        int i = (int)(value * 255.0f);
+        i = Math.Max(Math.Min(i, 255), 0);
+
+        return channel switch
+        {
+            RgbaChannel.Alpha => Color.FromArgb(i, 0, 0, 0),
+            RgbaChannel.Red => Color.FromArgb(0, i, 0, 0),
+            RgbaChannel.Green => Color.FromArgb(0, 0, i, 0),
+            RgbaChannel.Blue => Color.FromArgb(0, 0, 0, i),
+            _ => Color.FromArgb(i, i, i, i),
+        };
+    }
+
+    void HandleBaseColor(Material rhinoMaterial, G.Material gltfMaterial, bool exportTextures)
+    {
+        Texture? baseColorDoc = null;
+        Texture? alphaTextureDoc = null;
+        RenderTexture? baseColorTexture = null;
+        RenderTexture? alphaTexture = null;
+
+        if (exportTextures)
+        {
+            baseColorDoc = rhinoMaterial.GetTexture(TextureType.PBR_BaseColor);
+            alphaTextureDoc = rhinoMaterial.GetTexture(TextureType.PBR_Alpha);
+            baseColorTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrBaseColor);
+            alphaTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrAlpha);
+        }
+
+        bool baseColorLinear = baseColorTexture is not null && IsLinear(baseColorTexture);
+        bool hasBaseColorTexture = baseColorDoc is not null && baseColorDoc.Enabled;
+        bool hasAlphaTexture = alphaTextureDoc is not null && alphaTextureDoc.Enabled;
+        bool baseColorDiffuseAlphaForTransparency = rhinoMaterial.PhysicallyBased.UseBaseColorTextureAlphaForObjectAlphaTransparencyTexture;
+
+        Color4f baseColor = rhinoMaterial.PhysicallyBased.BaseColor;
+
+        if (_workflow.PreProcessColors)
+            baseColor = Color4f.ApplyGamma(baseColor, _workflow.PreProcessGamma);
+
+        if (!hasBaseColorTexture && !hasAlphaTexture)
+        {
+            gltfMaterial.PbrMetallicRoughness.BaseColorFactor = new float[]
+            {
+                baseColor.R,
+                baseColor.G,
+                baseColor.B,
+                (float)rhinoMaterial.PhysicallyBased.Alpha,
             };
 
-            if (!rhinoMaterial.IsPhysicallyBased)
+            if (rhinoMaterial.PhysicallyBased.Alpha == 1.0)
             {
-                rhinoMaterial.ToPhysicallyBased();
-            }
-
-            Rhino.DocObjects.PhysicallyBasedMaterial pbr = rhinoMaterial.PhysicallyBased;
-
-            // Textures
-            Rhino.DocObjects.Texture metallicTexture = null;
-            Rhino.DocObjects.Texture roughnessTexture = null;
-            Rhino.DocObjects.Texture normalTexture = null;
-            Rhino.DocObjects.Texture occlusionTexture = null;
-            Rhino.DocObjects.Texture emissiveTexture = null;
-            Rhino.DocObjects.Texture opacityTexture = null;
-            Rhino.DocObjects.Texture clearcoatTexture = null;
-            Rhino.DocObjects.Texture clearcoatRoughessTexture = null;
-            Rhino.DocObjects.Texture clearcoatNormalTexture = null;
-            Rhino.DocObjects.Texture specularTexture = null;
-
-            if(exportTextures)
-            {
-              metallicTexture = pbr.GetTexture(TextureType.PBR_Metallic);
-              roughnessTexture = pbr.GetTexture(TextureType.PBR_Roughness);
-              normalTexture = pbr.GetTexture(TextureType.Bump);
-              occlusionTexture = pbr.GetTexture(TextureType.PBR_AmbientOcclusion);
-              emissiveTexture = pbr.GetTexture(TextureType.PBR_Emission);
-              opacityTexture = pbr.GetTexture(TextureType.Opacity);
-              clearcoatTexture = pbr.GetTexture(TextureType.PBR_Clearcoat);
-              clearcoatRoughessTexture = pbr.GetTexture(TextureType.PBR_ClearcoatRoughness);
-              clearcoatNormalTexture = pbr.GetTexture(TextureType.PBR_ClearcoatBump);
-              specularTexture = pbr.GetTexture(TextureType.PBR_Specular);
-            }
-
-            HandleBaseColor(rhinoMaterial, material, exportTextures);
-
-            bool hasMetalTexture = metallicTexture == null ? false : metallicTexture.Enabled;
-            bool hasRoughnessTexture = roughnessTexture == null ? false : roughnessTexture.Enabled;
-
-            if (hasMetalTexture || hasRoughnessTexture)
-            {
-                material.PbrMetallicRoughness.MetallicRoughnessTexture = AddMetallicRoughnessTexture(rhinoMaterial, exportTextures);
-
-                float metallic = metallicTexture == null ? (float)pbr.Metallic : GetTextureWeight(metallicTexture);
-                float roughness = roughnessTexture == null ? (float)pbr.Roughness : GetTextureWeight(roughnessTexture);
-
-                material.PbrMetallicRoughness.MetallicFactor = metallic;
-                material.PbrMetallicRoughness.RoughnessFactor = roughness;
+                gltfMaterial.AlphaMode = G.Material.AlphaModeEnum.OPAQUE;
             }
             else
             {
-                material.PbrMetallicRoughness.MetallicFactor = (float)pbr.Metallic;
-                material.PbrMetallicRoughness.RoughnessFactor = (float)pbr.Roughness;
+                gltfMaterial.AlphaMode = G.Material.AlphaModeEnum.BLEND;
             }
+        }
+        else
+        {
+            gltfMaterial.PbrMetallicRoughness.BaseColorTexture = CombineBaseColorAndAlphaTexture(baseColorTexture, alphaTexture, baseColorDiffuseAlphaForTransparency, baseColor, baseColorLinear, (float)rhinoMaterial.PhysicallyBased.Alpha, out bool hasAlpha);
 
-            if (normalTexture != null && normalTexture.Enabled)
+            if (hasAlpha)
             {
-                material.NormalTexture = AddTextureNormal(normalTexture);
+                gltfMaterial.AlphaMode = G.Material.AlphaModeEnum.BLEND;
             }
-
-            if (occlusionTexture != null && occlusionTexture.Enabled)
+            else
             {
-                material.OcclusionTexture = AddTextureOcclusion(occlusionTexture);
+                gltfMaterial.AlphaMode = G.Material.AlphaModeEnum.OPAQUE;
             }
+        }
+    }
 
-            if (emissiveTexture != null && emissiveTexture.Enabled)
+    static bool IsLinear(RenderTexture texture)
+    {
+        var attribs = (CustomRenderContentAttribute[])texture.GetType().GetCustomAttributes(typeof(CustomRenderContentAttribute), false);
+
+        if (attribs is not null && attribs.Length > 0)
+            return attribs[0].IsLinear;
+
+        return texture.IsLinear();
+    }
+
+    G.TextureInfo CombineBaseColorAndAlphaTexture(RenderTexture? baseColorTexture, RenderTexture? alphaTexture, bool baseColorDiffuseAlphaForTransparency, Color4f baseColor, bool baseColorLinear, float alpha, out bool hasAlpha)
+    {
+        hasAlpha = false;
+        int baseColorWidth = 0, baseColorHeight = 0;
+        int alphaWidth = 0, alphaHeight = 0;
+
+        baseColorTexture?.PixelSize(out baseColorWidth, out baseColorHeight, out _);
+        alphaTexture?.PixelSize(out alphaWidth, out alphaHeight, out _);
+
+        int width = Math.Max(baseColorWidth, alphaWidth);
+        int height = Math.Max(baseColorHeight, alphaHeight);
+
+        if (width <= 0)
+        {
+            width = 1024;
+        }
+
+        if (height <= 0)
+        {
+            height = 1024;
+        }
+
+        var baseColorEvaluator = baseColorTexture?.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
+        var alphaTextureEvaluator = alphaTexture?.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
+
+        Bitmap bitmap = new(width, height);
+
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
             {
-                material.EmissiveTexture = AddTexture(emissiveTexture.FileReference.FullPath);
+                double x = i / ((double)(width - 1));
+                double y = j / ((double)(height - 1));
 
-                float emissionMultiplier = 1.0f;
+                y = 1.0 - y;
 
-                var param = rhinoMaterial.RenderMaterial.GetParameter("emission-multiplier");
+                Point3d uvw = new(x, y, 0.0);
+                Color4f baseColorOut = baseColor;
 
-                if (param != null)
+                if (baseColorEvaluator is not null)
                 {
-                    emissionMultiplier = (float)Convert.ToDouble(param);
+                    baseColorOut = baseColorEvaluator.GetColor(uvw, Vector3d.Zero, Vector3d.Zero);
+
+                    if (baseColorLinear)
+                        baseColorOut = Color4f.ApplyGamma(baseColorOut, _workflow.PreProcessGamma);
                 }
 
-                material.EmissiveFactor = new float[]
+                if (!baseColorDiffuseAlphaForTransparency)
+                    baseColorOut = new(baseColorOut.R, baseColorOut.G, baseColorOut.B, 1.0f);
+
+                float evaluatedAlpha = (float)alpha;
+
+                if (alphaTextureEvaluator is not null)
                 {
-                    emissionMultiplier,
-                    emissionMultiplier,
-                    emissionMultiplier,
-                };
-            }
-            else
-            {
-                material.EmissiveFactor = new float[]
-                {
-                    rhinoMaterial.PhysicallyBased.Emission.R,
-                    rhinoMaterial.PhysicallyBased.Emission.G,
-                    rhinoMaterial.PhysicallyBased.Emission.B,
-                };
-            }
-
-            //Extensions
-
-            material.Extensions = new Dictionary<string, object>();
-
-            //Opacity => Transmission https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_transmission/README.md
-
-            glTFExtensions.KHR_materials_transmission transmission = new glTFExtensions.KHR_materials_transmission();
-
-            if (opacityTexture != null && opacityTexture.Enabled)
-            {
-                //Transmission texture is stored in an images R channel
-                //https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_transmission/README.md#properties
-                transmission.TransmissionTexture = GetSingleChannelTexture(opacityTexture, RgbaChannel.Red, true);
-                transmission.TransmissionFactor = GetTextureWeight(opacityTexture);
-            }
-            else
-            {
-                transmission.TransmissionFactor = 1.0f - (float)pbr.Opacity;
-            }
-
-            material.Extensions.Add(glTFExtensions.KHR_materials_transmission.Tag, transmission);
-
-            //Clearcoat => Clearcoat https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md
-
-            glTFExtensions.KHR_materials_clearcoat clearcoat = new glTFExtensions.KHR_materials_clearcoat();
-
-            if(clearcoatTexture != null && clearcoatTexture.Enabled)
-            {
-                clearcoat.ClearcoatTexture = AddTexture(clearcoatTexture.FileReference.FullPath);
-                clearcoat.ClearcoatFactor = GetTextureWeight(clearcoatTexture);
-            }
-            else
-            {
-                clearcoat.ClearcoatFactor = (float)pbr.Clearcoat;
-            }
-
-            if(clearcoatRoughessTexture != null && clearcoatRoughessTexture.Enabled)
-            {
-                clearcoat.ClearcoatRoughnessTexture = AddTexture(clearcoatRoughessTexture.FileReference.FullPath);
-                clearcoat.ClearcoatRoughnessFactor = GetTextureWeight(clearcoatRoughessTexture);
-            }
-            else
-            {
-                clearcoat.ClearcoatRoughnessFactor = (float)pbr.ClearcoatRoughness;
-            }
-
-            if(clearcoatNormalTexture != null && clearcoatNormalTexture.Enabled)
-            {
-                clearcoat.ClearcoatNormalTexture = AddTextureNormal(clearcoatNormalTexture);
-            }
-
-            material.Extensions.Add(glTFExtensions.KHR_materials_clearcoat.Tag, clearcoat);
-
-            //Opacity IOR -> IOR https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_ior
-
-            glTFExtensions.KHR_materials_ior ior = new glTFExtensions.KHR_materials_ior()
-            {
-                Ior = (float)pbr.OpacityIOR,
-            };
-
-            material.Extensions.Add(glTFExtensions.KHR_materials_ior.Tag, ior);
-
-            //Specular -> Specular https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_specular
-
-            glTFExtensions.KHR_materials_specular specular = new glTFExtensions.KHR_materials_specular();
-
-            if(specularTexture != null && specularTexture.Enabled)
-            {
-                //Specular is stored in the textures alpha channel
-                specular.SpecularTexture = GetSingleChannelTexture(specularTexture, RgbaChannel.Alpha, false);
-                specular.SpecularFactor = GetTextureWeight(specularTexture);
-            }
-            else
-            {
-                specular.SpecularFactor = (float)pbr.Specular;
-            }
-
-            material.Extensions.Add(glTFExtensions.KHR_materials_specular.Tag, specular);
-
-            return dummy.Materials.AddAndReturnIndex(material);
-        }
-
-        glTFLoader.Schema.TextureInfo GetSingleChannelTexture(Rhino.DocObjects.Texture texture, RgbaChannel channel, bool invert)
-        {
-            string path = texture.FileReference.FullPath;
-
-            Bitmap bmp = new Bitmap(path);
-
-            Bitmap final = new Bitmap(bmp.Width, bmp.Height);
-
-            for (int i = 0; i < bmp.Width; i++)
-            {
-                for(int j = 0; j < bmp.Height; j++)
-                {
-                    Color4f color = new Color4f(bmp.GetPixel(i, j));
-
-                    float value = color.L;
-
-                    if(invert)
-                    {
-                        value = 1.0f - value;
-                    }
-
-                    Color colorFinal = GetSingleChannelColor(value, channel);
-
-                    final.SetPixel(i, j, colorFinal);
+                    Color4f alphaColor = alphaTextureEvaluator.GetColor(uvw, Vector3d.Zero, Vector3d.Zero);
+                    evaluatedAlpha = alphaColor.L;
                 }
+
+                float alphaFinal = baseColor.A * evaluatedAlpha;
+                hasAlpha = hasAlpha || alpha != 1.0f;
+                Color4f colorFinal = new(baseColorOut.R, baseColorOut.G, baseColorOut.B, alphaFinal);
+                bitmap.SetPixel(i, j, colorFinal.AsSystemColor());
             }
-
-            int textureIndex = GetTextureFromBitmap(final);
-
-            glTFLoader.Schema.TextureInfo textureInfo = new glTFLoader.Schema.TextureInfo()
-            {
-                Index = textureIndex,
-                TexCoord = 0,
-            };
-
-            return textureInfo;
         }
 
-        private Color GetSingleChannelColor(float value, RgbaChannel channel)
+        return GetTextureInfoFromBitmap(bitmap);
+    }
+
+    int AddTextureToBuffers(string texturePath)
+    {
+        var image = GetImageFromFile(texturePath);
+        int imageIdx = _dummy.Images.AddAndReturnIndex(image);
+
+        G.Texture texture = new()
         {
-            int i = (int)(value * 255.0f);
+            Source = imageIdx,
+            Sampler = 0
+        };
 
-            i = Math.Max(Math.Min(i, 255), 0);
+        return _dummy.Textures.AddAndReturnIndex(texture);
+    }
 
-            switch (channel)
-            {
-                case RgbaChannel.Alpha:
-                    return Color.FromArgb(i, 0, 0, 0);
-                case RgbaChannel.Red:
-                    return Color.FromArgb(0, i, 0, 0);
-                case RgbaChannel.Green:
-                    return Color.FromArgb(0, 0, i, 0);
-                case RgbaChannel.Blue:
-                    return Color.FromArgb(0, 0, 0, i);
-            }
+    G.Image GetImageFromFileText(string fileName)
+    {
+        byte[] imageBytes = GetImageBytesFromFile(fileName);
 
-            return Color.FromArgb(i, i, i, i);
+        G.Buffer textureBuffer = new()
+        {
+            Uri = Constants.TextBufferHeader + Convert.ToBase64String(imageBytes),
+            ByteLength = imageBytes.Length,
+        };
+
+        int textureBufferIdx = _dummy.Buffers.AddAndReturnIndex(textureBuffer);
+
+        G.BufferView textureBufferView = new()
+        {
+            Buffer = textureBufferIdx,
+            ByteOffset = 0,
+            ByteLength = textureBuffer.ByteLength,
+        };
+        int textureBufferViewIdx = _dummy.BufferViews.AddAndReturnIndex(textureBufferView);
+
+        return new()
+        {
+            BufferView = textureBufferViewIdx,
+            MimeType = G.Image.MimeTypeEnum.image_png,
+        };
+    }
+
+    G.Image GetImageFromFile(string fileName)
+    {
+        if (_binary)
+        {
+            return GetImageFromFileBinary(fileName);
+        }
+        else
+        {
+            return GetImageFromFileText(fileName);
+        }
+    }
+
+    G.Image GetImageFromFileBinary(string fileName)
+    {
+        byte[] imageBytes = GetImageBytesFromFile(fileName);
+        int imageBytesOffset = (int)_binaryBuffer.Count;
+        _binaryBuffer.AddRange(imageBytes);
+
+        G.BufferView textureBufferView = new()
+        {
+            Buffer = 0,
+            ByteOffset = imageBytesOffset,
+            ByteLength = imageBytes.Length,
+        };
+        int textureBufferViewIdx = _dummy.BufferViews.AddAndReturnIndex(textureBufferView);
+
+        return new()
+        {
+            BufferView = textureBufferViewIdx,
+            MimeType = G.Image.MimeTypeEnum.image_png,
+        };
+    }
+
+    static byte[] GetImageBytesFromFile(string fileName)
+    {
+        Bitmap bmp = new(fileName);
+        return GetImageBytes(bmp);
+    }
+
+    G.TextureInfo AddTexture(string texturePath)
+    {
+        int textureIdx = AddTextureToBuffers(texturePath);
+        return new() { Index = textureIdx, TexCoord = 0 };
+    }
+
+    G.MaterialNormalTextureInfo AddTextureNormal(Texture normalTexture)
+    {
+        int textureIdx = AddNormalTexture(normalTexture);
+        float weight = GetTextureWeight(normalTexture);
+
+        return new()
+        {
+            Index = textureIdx,
+            TexCoord = 0,
+            Scale = weight,
+        };
+    }
+
+    int AddNormalTexture(Texture normalTexture)
+    {
+        Bitmap bmp = new(normalTexture.FileReference.FullPath);
+
+        if (!Rhino.BitmapExtensions.IsNormalMap(bmp, true, out _))
+            bmp = Rhino.BitmapExtensions.ConvertToNormalMap(bmp, true, out _);
+
+        return GetTextureFromBitmap(bmp);
+    }
+
+    G.MaterialOcclusionTextureInfo AddTextureOcclusion(Texture texture)
+    {
+        int textureIdx = AddTextureToBuffers(texture.FileReference.FullPath);
+
+        return new()
+        {
+            Index = textureIdx,
+            TexCoord = 0,
+            Strength = GetTextureWeight(texture),
+        };
+    }
+
+    public G.TextureInfo AddMetallicRoughnessTexture(Material rhinoMaterial, bool exportTextures)
+    {
+        Texture? metalTexture = null;
+        Texture? roughnessTexture = null;
+
+        if (exportTextures)
+        {
+            metalTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Metallic);
+            roughnessTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Roughness);
         }
 
-        void HandleBaseColor(Rhino.DocObjects.Material rhinoMaterial, glTFLoader.Schema.Material gltfMaterial, bool exportTextures)
+        bool hasMetalTexture = metalTexture is not null && metalTexture.Enabled;
+        bool hasRoughnessTexture = roughnessTexture is not null && roughnessTexture.Enabled;
+
+        RenderTexture? renderTextureMetal = null;
+        RenderTexture? renderTextureRoughness = null;
+
+        int mWidth = 0;
+        int mHeight = 0;
+        int rWidth = 0;
+        int rHeight = 0;
+
+        // Get the textures
+        if (hasMetalTexture)
         {
-            Rhino.DocObjects.Texture baseColorDoc = null;
-            Rhino.DocObjects.Texture alphaTextureDoc = null;
-            RenderTexture baseColorTexture = null;
-            RenderTexture alphaTexture = null;
+            renderTextureMetal = rhinoMaterial.RenderMaterial.GetTextureFromUsage(Rhino.Render.RenderMaterial.StandardChildSlots.PbrMetallic);
+            renderTextureMetal.PixelSize(out mWidth, out mHeight, out _);
+        }
 
-            if(exportTextures)
+        if (hasRoughnessTexture)
+        {
+            renderTextureRoughness = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrRoughness);
+            renderTextureRoughness.PixelSize(out rWidth, out rHeight, out _);
+        }
+
+        int width = Math.Max(mWidth, rWidth);
+        int height = Math.Max(mHeight, rHeight);
+
+        // Metal
+        var evalMetal = renderTextureMetal?.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
+
+        // Roughness
+        var evalRoughness = renderTextureRoughness?.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
+
+        // Copy Metal to the blue channel, roughness to the green
+        Bitmap bitmap = new(width, height, PixelFormat.Format32bppArgb);
+
+        for (var j = 0; j < height - 1; j += 1)
+        {
+            for (var i = 0; i < width - 1; i += 1)
             {
-              baseColorDoc = rhinoMaterial.GetTexture(TextureType.PBR_BaseColor);
-              alphaTextureDoc = rhinoMaterial.GetTexture(TextureType.PBR_Alpha);
-              baseColorTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrBaseColor);
-              alphaTexture = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrAlpha);
-            }
+                double x = i / (double)(width - 1);
+                double y = j / (double)(height - 1);
 
-            bool baseColorLinear = baseColorTexture == null ? false : IsLinear(baseColorTexture);
+                Point3d uvw = new(x, y, 0.0);
 
-            bool hasBaseColorTexture = baseColorDoc == null ? false : baseColorDoc.Enabled;
-            bool hasAlphaTexture = alphaTextureDoc == null ? false : alphaTextureDoc.Enabled;
+                float g = 1.0f;
+                float b = 1.0f;
 
-            bool baseColorDiffuseAlphaForTransparency = rhinoMaterial.PhysicallyBased.UseBaseColorTextureAlphaForObjectAlphaTransparencyTexture;
-
-            Color4f baseColor = rhinoMaterial.PhysicallyBased.BaseColor;
-
-            if (workflow.PreProcessColors)
-            {
-                baseColor = Color4f.ApplyGamma(baseColor, workflow.PreProcessGamma);
-            }
-
-            if (!hasBaseColorTexture && !hasAlphaTexture)
-            {
-                gltfMaterial.PbrMetallicRoughness.BaseColorFactor = new float[]
+                if (evalMetal is not null)
                 {
-                    baseColor.R,
-                    baseColor.G,
-                    baseColor.B,
-                    (float)rhinoMaterial.PhysicallyBased.Alpha,
-                };
-
-                if(rhinoMaterial.PhysicallyBased.Alpha == 1.0)
-                {
-                    gltfMaterial.AlphaMode = glTFLoader.Schema.Material.AlphaModeEnum.OPAQUE;
+                    Color4f metal = evalMetal.GetColor(uvw, Vector3d.Zero, Vector3d.Zero);
+                    b = metal.L; //grayscale maps, so we want lumonosity
                 }
-                else
+
+                if (evalRoughness is not null)
                 {
-                    gltfMaterial.AlphaMode = glTFLoader.Schema.Material.AlphaModeEnum.BLEND;
+                    Color4f roughnessColor = evalRoughness.GetColor(uvw, Vector3d.ZAxis, Vector3d.Zero);
+                    g = roughnessColor.L; //grayscale maps, so we want lumonosity
                 }
-            }
-            else
-            {
-                gltfMaterial.PbrMetallicRoughness.BaseColorTexture = CombineBaseColorAndAlphaTexture(baseColorTexture, alphaTexture, baseColorDiffuseAlphaForTransparency, baseColor, baseColorLinear, (float)rhinoMaterial.PhysicallyBased.Alpha, out bool hasAlpha);
-                
-                if (hasAlpha)
-                {
-                    gltfMaterial.AlphaMode = glTFLoader.Schema.Material.AlphaModeEnum.BLEND;
-                }
-                else
-                {
-                    gltfMaterial.AlphaMode = glTFLoader.Schema.Material.AlphaModeEnum.OPAQUE;
-                }
+
+                Color4f color = new(0.0f, g, b, 1.0f);
+                bitmap.SetPixel(i, height - j - 1, color.AsSystemColor());
             }
         }
 
-        bool IsLinear(RenderTexture texture)
+        return GetTextureInfoFromBitmap(bitmap);
+    }
+
+    int GetTextureFromBitmap(Bitmap bitmap)
+    {
+        var image = GetImageFromBitmap(bitmap);
+        int imageIdx = _dummy.Images.AddAndReturnIndex(image);
+
+        G.Texture texture = new()
         {
-            CustomRenderContentAttribute[] attribs = texture.GetType().GetCustomAttributes(typeof(CustomRenderContentAttribute), false) as CustomRenderContentAttribute[];
-            
-            if (attribs != null && attribs.Length > 0)
-            {
-                return attribs[0].IsLinear;
-            }
+            Source = imageIdx,
+            Sampler = 0
+        };
 
-            return texture.IsLinear();
-        }
+        return _dummy.Textures.AddAndReturnIndex(texture);
+    }
 
-        glTFLoader.Schema.TextureInfo CombineBaseColorAndAlphaTexture(RenderTexture baseColorTexture, RenderTexture alphaTexture, bool baseColorDiffuseAlphaForTransparency, Color4f baseColor, bool baseColorLinear, float alpha, out bool hasAlpha)
+    G.TextureInfo GetTextureInfoFromBitmap(Bitmap bitmap)
+    {
+        int textureIdx = GetTextureFromBitmap(bitmap);
+
+        return new()
         {
-            hasAlpha = false;
+            Index = textureIdx,
+            TexCoord = 0
+        };
+    }
 
-            bool hasBaseColorTexture = baseColorTexture != null;
-            bool hasAlphaTexture = alphaTexture != null;
-
-            int baseColorWidth, baseColorHeight, baseColorDepth;
-            baseColorWidth = baseColorHeight = baseColorDepth = 0;
-
-            int alphaWidth, alphaHeight, alphaDepth;
-            alphaWidth = alphaHeight = alphaDepth = 0;
-
-            if (hasBaseColorTexture)
-            {
-                baseColorTexture.PixelSize(out baseColorWidth, out baseColorHeight, out baseColorDepth);
-            }
-            
-            if (hasAlphaTexture)
-            {
-                alphaTexture.PixelSize(out alphaWidth, out alphaHeight, out alphaDepth);
-            }
-
-            int width = Math.Max(baseColorWidth, alphaWidth);
-            int height = Math.Max(baseColorHeight, alphaHeight);
-
-            if(width <= 0)
-            {
-                width = 1024;
-            }
-
-            if(height <= 0)
-            {
-                height = 1024;
-            }
-
-            TextureEvaluator baseColorEvaluator = null;
-
-            if (hasBaseColorTexture)
-            {
-                baseColorEvaluator = baseColorTexture.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
-            }
-
-            TextureEvaluator alphaTextureEvaluator = null;
-
-            if (hasAlphaTexture)
-            {
-                alphaTextureEvaluator = alphaTexture.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
-            }
-
-            Bitmap bitmap = new Bitmap(width, height);
-
-            for(int i = 0; i < width; i++)
-            {
-                for(int j = 0; j < height; j++)
-                {
-                    double x = (double)i / ((double)(width - 1));
-                    double y = (double)j / ((double)(height - 1));
-
-                    y = 1.0 - y;
-
-                    Point3d uvw = new Point3d(x, y, 0.0);
-
-                    Color4f baseColorOut = baseColor;
-
-                    if (hasBaseColorTexture)
-                    {
-                        baseColorOut = baseColorEvaluator.GetColor(uvw, Vector3d.Zero, Vector3d.Zero);
-
-                        if(baseColorLinear)
-                        {
-                            baseColorOut = Color4f.ApplyGamma(baseColorOut, workflow.PreProcessGamma);
-                        }
-                    }
-
-                    if(!baseColorDiffuseAlphaForTransparency)
-                    {
-                        baseColorOut = new Color4f(baseColorOut.R, baseColorOut.G, baseColorOut.B, 1.0f);
-                    }
-
-                    float evaluatedAlpha = (float)alpha;
-
-                    if(hasAlphaTexture)
-                    {
-                        Color4f alphaColor = alphaTextureEvaluator.GetColor(uvw, Vector3d.Zero, Vector3d.Zero);
-                        evaluatedAlpha = alphaColor.L;
-                    }
-
-                    float alphaFinal = baseColor.A * evaluatedAlpha;
-
-                    hasAlpha = hasAlpha || alpha != 1.0f;
-
-                    Color4f colorFinal = new Color4f(baseColorOut.R, baseColorOut.G, baseColorOut.B, alphaFinal);
-
-                    bitmap.SetPixel(i, j, colorFinal.AsSystemColor());
-                }
-            }
-
-            //Testing
-            //bitmap.Save(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "out.png"));
-
-            return GetTextureInfoFromBitmap(bitmap);
-        }
-
-        private int AddTextureToBuffers(string texturePath)
+    G.Image GetImageFromBitmap(Bitmap bitmap)
+    {
+        if (_binary)
         {
-            var image = GetImageFromFile(texturePath);
-
-            int imageIdx = dummy.Images.AddAndReturnIndex(image);
-
-            var texture = new glTFLoader.Schema.Texture()
-            {
-                Source = imageIdx,
-                Sampler = 0
-            };
-
-            return dummy.Textures.AddAndReturnIndex(texture);
+            return GetImageFromBitmapBinary(bitmap);
         }
-
-        private glTFLoader.Schema.Image GetImageFromFileText(string fileName)
+        else
         {
-            byte[] imageBytes = GetImageBytesFromFile(fileName);
-
-            var textureBuffer = new glTFLoader.Schema.Buffer()
-            {
-                Uri = Constants.TextBufferHeader + Convert.ToBase64String(imageBytes),
-                ByteLength = imageBytes.Length,
-            };
-
-            int textureBufferIdx = dummy.Buffers.AddAndReturnIndex(textureBuffer);
-
-            var textureBufferView = new glTFLoader.Schema.BufferView()
-            {
-                Buffer = textureBufferIdx,
-                ByteOffset = 0,
-                ByteLength = textureBuffer.ByteLength,
-            };
-            int textureBufferViewIdx = dummy.BufferViews.AddAndReturnIndex(textureBufferView);
-
-            return new glTFLoader.Schema.Image()
-            {
-                BufferView = textureBufferViewIdx,
-                MimeType = glTFLoader.Schema.Image.MimeTypeEnum.image_png,
-            };
+            return GetImageFromBitmapText(bitmap);
         }
+    }
 
-        private glTFLoader.Schema.Image GetImageFromFile(string fileName)
+    G.Image GetImageFromBitmapText(Bitmap bitmap)
+    {
+        byte[] imageBytes = GetImageBytes(bitmap);
+
+        G.Buffer textureBuffer = new()
         {
-            if (binary)
-            {
-                return GetImageFromFileBinary(fileName);
-            }
-            else
-            {
-                return GetImageFromFileText(fileName);
-            }
-        }
+            Uri = Constants.TextBufferHeader + Convert.ToBase64String(imageBytes),
+            ByteLength = imageBytes.Length
+        };
 
-        private glTFLoader.Schema.Image GetImageFromFileBinary(string fileName)
+        int textureBufferIdx = _dummy.Buffers.AddAndReturnIndex(textureBuffer);
+
+        // Create bufferviews
+        var textureBufferView = new glTFLoader.Schema.BufferView()
         {
-            byte[] imageBytes = GetImageBytesFromFile(fileName);
-            int imageBytesOffset = (int)binaryBuffer.Count;
-            binaryBuffer.AddRange(imageBytes);
+            Buffer = textureBufferIdx,
+            ByteOffset = 0,
+            ByteLength = textureBuffer.ByteLength,
+        };
+        int textureBufferViewIdx = _dummy.BufferViews.AddAndReturnIndex(textureBufferView);
 
-            var textureBufferView = new glTFLoader.Schema.BufferView()
-            {
-                Buffer = 0,
-                ByteOffset = imageBytesOffset,
-                ByteLength = imageBytes.Length,
-            };
-            int textureBufferViewIdx = dummy.BufferViews.AddAndReturnIndex(textureBufferView);
-
-            return new glTFLoader.Schema.Image()
-            {
-                BufferView = textureBufferViewIdx,
-                MimeType = glTFLoader.Schema.Image.MimeTypeEnum.image_png,
-            };
-        }
-
-        private byte[] GetImageBytesFromFile(string fileName)
+        return new()
         {
-            Bitmap bmp = new Bitmap(fileName);
+            BufferView = textureBufferViewIdx,
+            MimeType = G.Image.MimeTypeEnum.image_png,
+        };
+    }
 
-            return GetImageBytes(bmp);
-        }
+    G.Image GetImageFromBitmapBinary(Bitmap bitmap)
+    {
+        byte[] imageBytes = GetImageBytes(bitmap);
+        int imageBytesOffset = _binaryBuffer.Count;
+        _binaryBuffer.AddRange(imageBytes);
 
-        private glTFLoader.Schema.TextureInfo AddTexture(string texturePath)
+        // Create bufferviews
+        G.BufferView textureBufferView = new()
         {
-            int textureIdx = AddTextureToBuffers(texturePath);
+            Buffer = 0,
+            ByteOffset = imageBytesOffset,
+            ByteLength = imageBytes.Length,
+        };
+        int textureBufferViewIdx = _dummy.BufferViews.AddAndReturnIndex(textureBufferView);
 
-            return new glTFLoader.Schema.TextureInfo() { Index = textureIdx, TexCoord = 0 };
-        }
-
-        private glTFLoader.Schema.MaterialNormalTextureInfo AddTextureNormal(Rhino.DocObjects.Texture normalTexture)
+        return new()
         {
-            int textureIdx = AddNormalTexture(normalTexture);
+            BufferView = textureBufferViewIdx,
+            MimeType = G.Image.MimeTypeEnum.image_png,
+        };
+    }
 
-            float weight = GetTextureWeight(normalTexture);
+    static byte[] GetImageBytes(Bitmap bitmap)
+    {
+        using MemoryStream imageStream = new(4096);
+        bitmap.Save(imageStream, ImageFormat.Png);
 
-            return new glTFLoader.Schema.MaterialNormalTextureInfo()
-            {
-                Index = textureIdx,
-                TexCoord = 0,
-                Scale = weight,
-            };
-        }
+        //Zero pad so its 4 byte aligned
+        long mod = imageStream.Position % 4;
+        imageStream.Write(Constants.Paddings[mod], 0, Constants.Paddings[mod].Length);
 
-        private int AddNormalTexture(Rhino.DocObjects.Texture normalTexture)
-        {
-            Bitmap bmp = new Bitmap(normalTexture.FileReference.FullPath);
+        return imageStream.ToArray();
+    }
 
-            if (!Rhino.BitmapExtensions.IsNormalMap(bmp, true, out bool pZ))
-            {
-                bmp = Rhino.BitmapExtensions.ConvertToNormalMap(bmp, true, out pZ);
-            }
-
-            return GetTextureFromBitmap(bmp);
-        }
-
-        private glTFLoader.Schema.MaterialOcclusionTextureInfo AddTextureOcclusion(Rhino.DocObjects.Texture texture)
-        {
-            int textureIdx = AddTextureToBuffers(texture.FileReference.FullPath);
-
-            return new glTFLoader.Schema.MaterialOcclusionTextureInfo()
-            {
-                Index = textureIdx,
-                TexCoord = 0,
-                Strength = GetTextureWeight(texture),
-            };
-        }
-
-        public glTFLoader.Schema.TextureInfo AddMetallicRoughnessTexture(Rhino.DocObjects.Material rhinoMaterial, bool exportTextures)
-        {
-            Rhino.DocObjects.Texture metalTexture = null;
-            Rhino.DocObjects.Texture roughnessTexture = null;
-
-            if(exportTextures)
-            {
-              metalTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Metallic);
-              roughnessTexture = rhinoMaterial.PhysicallyBased.GetTexture(TextureType.PBR_Roughness);
-            }
-
-            bool hasMetalTexture = metalTexture == null ? false : metalTexture.Enabled;
-            bool hasRoughnessTexture = roughnessTexture == null ? false : roughnessTexture.Enabled;
-
-            RenderTexture renderTextureMetal = null;
-            RenderTexture renderTextureRoughness = null;
-
-            int mWidth = 0;
-            int mHeight = 0;
-            int rWidth = 0;
-            int rHeight = 0;
-
-            // Get the textures
-            if (hasMetalTexture)
-            {
-                renderTextureMetal = rhinoMaterial.RenderMaterial.GetTextureFromUsage(Rhino.Render.RenderMaterial.StandardChildSlots.PbrMetallic);
-                renderTextureMetal.PixelSize(out mWidth, out mHeight, out int _w0);
-            }
-
-            if (hasRoughnessTexture)
-            {
-                renderTextureRoughness = rhinoMaterial.RenderMaterial.GetTextureFromUsage(RenderMaterial.StandardChildSlots.PbrRoughness);
-                renderTextureRoughness.PixelSize(out rWidth, out rHeight, out int _w1);
-            }
-
-            int width = Math.Max(mWidth, rWidth);
-            int height = Math.Max(mHeight, rHeight);
-
-            TextureEvaluator evalMetal = null;
-            TextureEvaluator evalRoughness = null;
-
-            // Metal
-            if (hasMetalTexture)
-            {
-                evalMetal = renderTextureMetal.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
-            }
-
-            // Roughness
-            if (hasRoughnessTexture)
-            {
-                evalRoughness = renderTextureRoughness.CreateEvaluator(RenderTexture.TextureEvaluatorFlags.Normal);
-            }
-
-            // Copy Metal to the blue channel, roughness to the green
-            var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-
-            for (var j = 0; j < height - 1; j += 1)
-            {
-                for (var i = 0; i < width - 1; i += 1)
-                {
-                    double x = (double)i / (double)(width - 1);
-                    double y = (double)j / (double)(height - 1);
-
-                    Point3d uvw = new Point3d(x, y, 0.0);
-
-                    float g = 1.0f;
-                    float b = 1.0f;
-
-                    if (hasMetalTexture)
-                    {
-                        Color4f metal = evalMetal.GetColor(uvw, Vector3d.Zero, Vector3d.Zero);
-                        b = metal.L; //grayscale maps, so we want lumonosity
-                    }
-
-                    if (hasRoughnessTexture)
-                    {
-                        Color4f roughnessColor = evalRoughness.GetColor(uvw, Vector3d.ZAxis, Vector3d.Zero);
-                        g = roughnessColor.L; //grayscale maps, so we want lumonosity
-                    }
-
-                    Color4f color = new Color4f(0.0f, g, b, 1.0f);
-                    bitmap.SetPixel(i, height - j - 1, color.AsSystemColor());
-                }
-            }
-
-            return GetTextureInfoFromBitmap(bitmap);
-        }
-
-        private int GetTextureFromBitmap(Bitmap bitmap)
-        {
-            var image = GetImageFromBitmap(bitmap);
-
-            int imageIdx = dummy.Images.AddAndReturnIndex(image);
-
-            var texture = new glTFLoader.Schema.Texture()
-            {
-                Source = imageIdx,
-                Sampler = 0
-            };
-
-            return dummy.Textures.AddAndReturnIndex(texture);
-        }
-
-        private glTFLoader.Schema.TextureInfo GetTextureInfoFromBitmap(Bitmap bitmap)
-        {
-            int textureIdx = GetTextureFromBitmap(bitmap);
-
-            return new glTFLoader.Schema.TextureInfo()
-            {
-                Index = textureIdx,
-                TexCoord = 0
-            };
-        }
-
-        private glTFLoader.Schema.Image GetImageFromBitmap(Bitmap bitmap)
-        {
-            if (binary)
-            {
-                return GetImageFromBitmapBinary(bitmap);
-            }
-            else
-            {
-                return GetImageFromBitmapText(bitmap);
-            }
-        }
-
-        private glTFLoader.Schema.Image GetImageFromBitmapText(Bitmap bitmap)
-        {
-            byte[] imageBytes = GetImageBytes(bitmap);
-
-            var textureBuffer = new glTFLoader.Schema.Buffer();
-
-            textureBuffer.Uri = Constants.TextBufferHeader + Convert.ToBase64String(imageBytes);
-            textureBuffer.ByteLength = imageBytes.Length;
-
-            int textureBufferIdx = dummy.Buffers.AddAndReturnIndex(textureBuffer);
-
-            // Create bufferviews
-            var textureBufferView = new glTFLoader.Schema.BufferView()
-            {
-                Buffer = textureBufferIdx,
-                ByteOffset = 0,
-                ByteLength = textureBuffer.ByteLength,
-            };
-            int textureBufferViewIdx = dummy.BufferViews.AddAndReturnIndex(textureBufferView);
-
-            return new glTFLoader.Schema.Image()
-            {
-                BufferView = textureBufferViewIdx,
-                MimeType = glTFLoader.Schema.Image.MimeTypeEnum.image_png,
-            };
-        }
-
-        private glTFLoader.Schema.Image GetImageFromBitmapBinary(Bitmap bitmap)
-        {
-            byte[] imageBytes = GetImageBytes(bitmap);
-            int imageBytesOffset = (int)binaryBuffer.Count;
-            binaryBuffer.AddRange(imageBytes);
-
-            // Create bufferviews
-            var textureBufferView = new glTFLoader.Schema.BufferView()
-            {
-                Buffer = 0,
-                ByteOffset = imageBytesOffset,
-                ByteLength = imageBytes.Length,
-            };
-            int textureBufferViewIdx = dummy.BufferViews.AddAndReturnIndex(textureBufferView);
-
-            return new glTFLoader.Schema.Image()
-            {
-                BufferView = textureBufferViewIdx,
-                MimeType = glTFLoader.Schema.Image.MimeTypeEnum.image_png,
-            };
-        }
-
-        private byte[] GetImageBytes(Bitmap bitmap)
-        {
-            using (MemoryStream imageStream = new MemoryStream(4096))
-            {
-                bitmap.Save(imageStream, System.Drawing.Imaging.ImageFormat.Png);
-
-                //Zero pad so its 4 byte aligned
-                long mod = imageStream.Position % 4;
-                imageStream.Write(Constants.Paddings[mod], 0, Constants.Paddings[mod].Length);
-
-                return imageStream.ToArray();
-            }
-        }
-
-        private float GetTextureWeight(Rhino.DocObjects.Texture texture)
-        {
-            texture.GetAlphaBlendValues(out double constant, out double a0, out double a1, out double a2, out double a3);
-
-            return (float)constant;
-        }
-
+    static float GetTextureWeight(Texture texture)
+    {
+        texture.GetAlphaBlendValues(out double constant, out _, out _, out _, out _);
+        return (float)constant;
     }
 }

@@ -1,54 +1,49 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using G = glTFLoader.Schema;
 
-namespace glTFExtensions
+namespace glTFExtensions;
+
+public class KHR_materials_clearcoat
 {
-    public class KHR_materials_clearcoat
+    public const string Tag = "KHR_materials_clearcoat";
+
+    [JsonProperty("clearcoatFactor")]
+    public float ClearcoatFactor = 0.0f;
+
+    [JsonProperty("clearcoatTexture")]
+    public G.TextureInfo? ClearcoatTexture;
+
+    [JsonProperty("clearcoatRoughnessFactor")]
+    public float ClearcoatRoughnessFactor = 0.0f;
+
+    [JsonProperty("clearcoatRoughnessTexture")]
+    public G.TextureInfo? ClearcoatRoughnessTexture;
+
+    [JsonProperty("clearcoatNormalTexture")]
+    public G.MaterialNormalTextureInfo? ClearcoatNormalTexture;
+
+    public bool ShouldSerializeClearcoatFactor()
     {
-        public const string Tag = "KHR_materials_clearcoat";
+        return ClearcoatFactor != 0.0f;
+    }
 
-        [Newtonsoft.Json.JsonPropertyAttribute("clearcoatFactor")]
-        public float ClearcoatFactor = 0.0f;
+    public bool ShouldSerializeClearcoatTexture()
+    {
+        return ClearcoatTexture != null;
+    }
 
-        [Newtonsoft.Json.JsonPropertyAttribute("clearcoatTexture")]
-        public glTFLoader.Schema.TextureInfo ClearcoatTexture = null;
+    public bool ShouldSerializeClearcoatRoughnessFactor()
+    {
+        return ClearcoatRoughnessFactor != 0.0f;
+    }
 
-        [Newtonsoft.Json.JsonPropertyAttribute("clearcoatRoughnessFactor")]
-        public float ClearcoatRoughnessFactor = 0.0f;
+    public bool ShouldSerializeClearcoatRoughnessTexture()
+    {
+        return ClearcoatRoughnessTexture != null;
+    }
 
-        [Newtonsoft.Json.JsonPropertyAttribute("clearcoatRoughnessTexture")]
-        public glTFLoader.Schema.TextureInfo ClearcoatRoughnessTexture = null;
-
-        [Newtonsoft.Json.JsonPropertyAttribute("clearcoatNormalTexture")]
-        public glTFLoader.Schema.MaterialNormalTextureInfo ClearcoatNormalTexture = null;
-
-        public bool ShouldSerializeClearcoatFactor()
-        {
-            return ClearcoatFactor != 0.0f;
-        }
-
-        public bool ShouldSerializeClearcoatTexture()
-        {
-            return ClearcoatTexture != null;
-        }
-
-        public bool ShouldSerializeClearcoatRoughnessFactor()
-        {
-            return ClearcoatRoughnessFactor != 0.0f;
-        }
-
-        public bool ShouldSerializeClearcoatRoughnessTexture()
-        {
-            return ClearcoatRoughnessTexture != null;
-        }
-
-        public bool ShouldSerializeClearcoatNormalTexture()
-        {
-            return ClearcoatNormalTexture != null;
-        }
-
+    public bool ShouldSerializeClearcoatNormalTexture()
+    {
+        return ClearcoatNormalTexture != null;
     }
 }
