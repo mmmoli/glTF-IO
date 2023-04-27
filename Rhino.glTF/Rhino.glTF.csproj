@@ -10,7 +10,7 @@
 
   <PropertyGroup Condition="$(Configuration) == 'Release'">
     <PackageId>Rhino.glTF</PackageId>
-    <Version>1.4.0</Version>
+    <Version>1.4.1</Version>
     <Authors>Aske Doerge;Joshua Kennedy;Peter Krattenmacher;Ali Tehami; HTCH</Authors>
     <Description>Export glTF and glb from Rhino</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
